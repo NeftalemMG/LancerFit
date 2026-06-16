@@ -4,7 +4,8 @@ A gamified fitness app for the University of Windsor Toldo Lancer Centre. This
 repository is the **frontend** built with React Native and Expo, targeting both
 iOS and Android from a single codebase.
 
-Here is the backend Repo: [LancerFit Backend](https://github.com/Ujk768/lancer-fit-backend.git)
+#### Backend Repo: [LancerFit Backend](https://github.com/Ujk768/lancer-fit-backend.git)
+
 ---
 
 ### What is in here
