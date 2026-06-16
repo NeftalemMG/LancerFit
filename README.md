@@ -1,44 +1,30 @@
-# LancerFit
+## LancerFit
 
 A gamified fitness app for the University of Windsor Toldo Lancer Centre. This
 repository is the **frontend** built with React Native and Expo, targeting both
-iOS and Android from a single codebase. It is a faithful port of the
-`LancerFit_Prototype.html` design: same Windsor-blue and knight-crest visual
-language, same six screens, rebuilt as real native components.
+iOS and Android from a single codebase.
 
-The backend is out of scope for this repository. All data the app shows
-(profile, quests, challenges, leaderboard, badges) is static and lives in
-`src/data/appData.js`. Wiring it to a real API is a separate task owned by
-someone else.
-
+Here is the backend Repo: [LancerFit Backend](https://github.com/Ujk768/lancer-fit-backend.git)
 ---
 
-## What is in here
+### What is in here
 
 The app reproduces the full prototype flow:
 
-- **Onboarding** — pick a knight avatar, choose a faculty, set a display name.
-- **Home** — XP/level hero card, Toldo check-in, daily quests, weekly activity bars.
-- **Challenges** — featured Tower Challenge, browseable challenge cards, daily quests.
-- **Leaderboard** — Friends / Faculty / Campus toggle, top-three podium, ranked rows.
-- **Badges** — twelve badges across six shape styles, earned and locked states, detail sheet.
-- **Profile** — progress ring, lifetime stats, settings rows, link into Badges.
-- **Tab bar** — Home, Challenges, a center "log workout" action, Ranks, Profile.
+- **Onboarding** - pick a knight avatar, choose a faculty, set a display name.
+- **Home** - XP/level hero card, Toldo check-in, daily quests, weekly activity bars.
+- **Challenges** - featured Tower Challenge, browseable challenge cards, daily quests.
+- **Leaderboard** - Friends / Faculty / Campus toggle, top-three podium, ranked rows.
+- **Badges** - Multiple badges across six shape styles, earned and locked states, detail sheet.
+- **Profile** - Progress ring, lifetime stats, settings rows, link into Badges.
+- **Tab bar** - Home, Challenges, a center "log workout" action, Ranks, Profile.
 
 Every avatar, badge, faculty crest, flag, and quest glyph is drawn with
 `react-native-svg`, so the artwork is vector and scales cleanly on any screen.
 
-### A note on the font
-
-The original prototype used Inter Tight for display text. This port keeps Inter
-for body and utility text but swaps the display face to **Space Grotesk**, a
-geometric sans that reads as more modern and distinctive while keeping the calm,
-premium feel the Windsor theme is going for. Both fonts are loaded at startup
-from the `@expo-google-fonts` packages, so there is nothing to install manually.
-
 ---
 
-## Prerequisites
+### Prerequisites
 
 You need three things regardless of platform:
 
@@ -56,11 +42,11 @@ App Store or Play Store is normally fine.
 
 ---
 
-## Setup on a MacBook
+### Setup on a MacBook
 
 This is the primary path. Follow it top to bottom the first time.
 
-### 1. Install Node
+#### 1. Install Node
 
 If you do not already have Node, the cleanest way on a Mac is with Homebrew.
 
@@ -91,28 +77,24 @@ npm --version
 
 `node --version` should print v20 or higher.
 
-### 2. Get the project onto your machine
+#### 2. Clone the project onto your machine
 
-Copy or unzip the `LancerFit` folder somewhere sensible, for example your home
-directory, then move into it:
+Clone the `LancerFit` repo and cd into it. 
 
 ```bash
+git clone https://github.com/NeftalemMG/LancerFIt.git
 cd ~/LancerFit
 ```
 
-You should be in the folder that contains `package.json`.
 
-### 3. Install the dependencies
+#### 3. Install the dependencies
 
 ```bash
 npm install
 ```
 
-This reads `package.json` and downloads everything into a `node_modules` folder.
-It can take a couple of minutes the first time. You only repeat this when
-dependencies change.
 
-### 4. Start the development server
+#### 4. Start the development server
 
 ```bash
 npx expo start
@@ -121,7 +103,7 @@ npx expo start
 A QR code and a menu of options appear in the terminal. The Metro bundler is now
 running and watching your files. Leave this terminal open while you work.
 
-### 5. Open the app on your iPhone
+#### 5. Open the app on your iPhone
 
 1. Install **Expo Go** from the App Store on your iPhone.
 2. Make sure your iPhone and your MacBook are on the **same Wi-Fi network**.
@@ -131,7 +113,7 @@ running and watching your files. Leave this terminal open while you work.
 The first load takes a little while because the bundle is built and sent over.
 After that, saving a file refreshes the app automatically.
 
-### 6. (Optional) Run the iOS Simulator instead of a phone
+#### 6. (Optional) Run the iOS Simulator instead of a phone
 
 If you would rather see it on your Mac:
 
@@ -143,13 +125,13 @@ Expo opens the iOS Simulator, installs Expo Go into it, and launches the app.
 
 ---
 
-## Testing on Android
+### Testing on Android
 
 Anyone on the team with an Android phone can test without installing Android
 Studio. The person running the dev server still does the `npm install` and
 `npx expo start` steps above; the Android tester only needs the phone.
 
-### Option A: physical Android phone (simplest)
+#### Option A: physical Android phone (simplest)
 
 1. Install **Expo Go** from the Google Play Store.
 2. Connect the phone to the **same Wi-Fi network** as the computer running
@@ -170,7 +152,7 @@ npx expo start --tunnel
 
 Then scan the new QR code. Tunnel mode is slower but works across networks.
 
-### Option B: Android emulator on a computer
+#### Option B: Android emulator on a computer
 
 This needs Android Studio and is only worth it if you do not have a physical
 Android phone.
@@ -185,7 +167,7 @@ Expo installs Expo Go into the running emulator and launches the app.
 
 ---
 
-## Everyday commands
+### Everyday commands
 
 Once setup is done, these are all you normally use:
 
@@ -203,7 +185,7 @@ While the server runs, in that terminal:
 
 ---
 
-## Project structure
+### Project structure
 
 ```
 LancerFit/
@@ -240,7 +222,7 @@ LancerFit/
         └── ProfileScreen.js
 ```
 
-### Where to change things
+#### Where to change things
 
 - **Colors and spacing** live in `src/theme/tokens.js`. Change them in one place
   and the whole app follows.
@@ -252,7 +234,7 @@ LancerFit/
 
 ---
 
-## Troubleshooting
+### Troubleshooting
 
 **The QR code scans but the app never loads.**
 Phone and computer are probably on networks that cannot reach each other. Stop
