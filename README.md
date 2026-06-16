@@ -30,7 +30,7 @@ Every avatar, badge, faculty crest, flag, and quest glyph is drawn with
 You need three things regardless of platform:
 
 1. **Node.js**, version 20 or newer (LTS recommended).
-2. **A package manager** — `npm` ships with Node, which is all you need.
+2. **A package manager** - `npm` ships with Node, which is all you need.
 3. **The Expo Go app** on whatever phone you want to test on, or a simulator.
 
 You do **not** need Xcode or Android Studio just to see the app on a physical
