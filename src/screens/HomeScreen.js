@@ -108,7 +108,7 @@ export default function HomeScreen({ goToQuests }) {
         <View style={[styles.ciIco, player.checkedIn && styles.ciIcoDone]}>
           {player.checkedIn
             ? <CheckIcon size={22} color={colors.green} strokeWidth={2.4} />
-            : <PinIcon size={22} color={colors.blue2} strokeWidth={2} />}
+            : <PinIcon size={22} color={colors.gold} strokeWidth={2} />}
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.ciTitle}>{player.checkedIn ? 'Checked in — nice work.' : 'Toldo Lancer Centre'}</Text>
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   dot: { width: 7, height: 7, borderRadius: 99, backgroundColor: colors.green },
   openText: { fontFamily: body.medium, fontSize: 12, color: colors.text2 },
   scanBtn: { width: 64, height: 64, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 3, ...shadow.accent('rgba(47,123,196,0.9)') },
-  scanLbl: { fontFamily: disp.bold, fontSize: 9, lineHeight: 10, letterSpacing: 0.3, color: '#fff', textAlign: 'center' },
+  scanLbl: { fontFamily: disp.bold, fontSize: 9, lineHeight: 10, letterSpacing: 0.3, color: '#000000', textAlign: 'center' },
 
   quest: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 14, paddingHorizontal: 15, borderRadius: radius.md },
   qicon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.blueSoft, borderWidth: 1, borderColor: colors.blueLine },
