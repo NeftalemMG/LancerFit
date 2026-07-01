@@ -1,10 +1,10 @@
 import React from 'react';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
-// ============================================================
+//
 // UI ICONS — monoline icons ported from the inline SVGs in the
 // prototype. Each takes { size, color, strokeWidth }.
-// ============================================================
+// 
 
 const base = (color, sw) => ({
   fill: 'none',
@@ -77,7 +77,7 @@ export function ScanIcon({ size = 22, color = '#fff', strokeWidth = 2.2 }) {
   );
 }
 
-export function CheckIcon({ size = 22, color = '#fff', strokeWidth = 2.6 }) {
+export function CheckIcon({ size = 22, color = '#000000', strokeWidth = 2.6 }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path d="M4.5 12.5l5 5L20 6.5" {...base(color, strokeWidth)} />
