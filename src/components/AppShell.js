@@ -17,8 +17,6 @@ import LogScreen from '../screens/LogScreen';
 
 import TabBar from './TabBar';
 import { Toast, Sheet } from './Overlays';
-import LogActivitySheet from './LogActivitySheet';
-
 
 export default function AppShell() {
   const { addXP, toast, openSheet, closeSheet, updatePlayer } = useApp();
@@ -33,6 +31,8 @@ export default function AppShell() {
   };
 
   const navigate = (key) => setScreen(key);
+
+  const openLog = () => setScreen('log');
 
   const renderScreen = () => {
     switch (screen) {
@@ -66,12 +66,13 @@ export default function AppShell() {
   return (
     <View style={styles.phone}>
       <LinearGradient
-        colors={[colors.bg1, colors.bg0, '#05203A']}
+        colors={[colors.bg1, colors.bg0, colors.bg0]}
         locations={[0, 0.62, 1]}
         style={StyleSheet.absoluteFill}
       />
       <StatusBar barStyle="light-content" />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        {/* {screen !== 'onboard' && <StatusBarRow />} */}
         <View style={{ flex: 1 }}>{renderScreen()}</View>
       </SafeAreaView>
 
