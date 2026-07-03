@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, ScrollView, StyleSheet, Dimensions } from "react-native";
+import { View, Text, ScrollView, StyleSheet } from "react-native";
 import { colors, radius } from "../theme/tokens";
 import { disp, body } from "../theme/typography";
 import { useApp } from "../context/AppContext";
@@ -41,29 +41,27 @@ export default function BadgesScreen({ goToProfile }) {
 
       <View style={styles.grid}>
         {displayBadges.map((b) => (
-          <PressScale
-            key={b.id}
-            onPress={() => openSheet(<BadgeSheet badge={b} />)}
-            style={styles.cellWrap}
-          >
-            <Card style={styles.cell}>
-              <Badge badge={b} size={66} />
-              {!b.isComplete && b.progress > 0 && (
-                <View style={styles.barWrap}>
-                  <ProgressBar
-                    pct={(b.progress / b.completionCriteria) * 100}
-                    height={4}
-                    fillColor={badgeAccent(b.id)}
-                  />
-                </View>
-              )}
-              <Text
-                style={[styles.bn, !b.isComplete && { color: colors.text3 }]}
-              >
-                {b.name}
-              </Text>
-            </Card>
-          </PressScale>
+          <View key={b.id} style={styles.cellWrap}>
+            <PressScale onPress={() => openSheet(<BadgeSheet badge={b} />)}>
+              <Card style={styles.cell}>
+                <Badge badge={b} size={62} />
+                {!b.isComplete && b.progress > 0 && (
+                  <View style={styles.barWrap}>
+                    <ProgressBar
+                      pct={(b.progress / b.completionCriteria) * 100}
+                      height={4}
+                      fillColor={badgeAccent(b.id)}
+                    />
+                  </View>
+                )}
+                <Text
+                  style={[styles.bn, !b.isComplete && { color: colors.text3 }]}
+                >
+                  {b.name}
+                </Text>
+              </Card>
+            </PressScale>
+          </View>
         ))}
       </View>
     </ScrollView>
@@ -110,8 +108,13 @@ const styles = StyleSheet.create({
     color: colors.text2,
   },
 
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 18 },
-  cellWrap: { width: (Dimensions.get("window").width - 60) / 3 },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginTop: 18,
+  },
+  cellWrap: { width: "31.5%", marginBottom: 10 },
   cell: {
     alignItems: "center",
     paddingTop: 16,
