@@ -22,14 +22,14 @@ export default function SignInScreen({
   const [submitting, setSubmitting] = useState(false);
   const passwordRef = useRef(null);
 
-  if (__DEV__ && email === "test@test.com") {
-  onSignInSuccess?.({ token: "mock-token" });
-  return;
-}
-
   const submit = async () => {
     if (submitting) return;
 
+    if (__DEV__ && email === "test@test.com") {
+      onSignInSuccess?.({ token: "mock-token" });
+      return;
+    }
+    
     const result = validateSignIn({ email, password });
 
     setErrors(result.errors);
