@@ -25,11 +25,20 @@ export default function SignInScreen({
   const submit = async () => {
     if (submitting) return;
 
-    if (__DEV__ && email === "test@test.com") {
-      onSignInSuccess?.({ token: "mock-token" });
+    if (__DEV__ && email === "test@uwindsor.ca") {
+      onSignInSuccess?.({
+        token: "mock-jwt-token-xyz-123",
+        user: {
+          id: "mock-user-id",
+          email: "test@uwindsor.ca",
+          name: "Test Lancer",
+          firstName: "Test",
+          lastName: "Lancer",
+        },
+      });
       return;
     }
-    
+
     const result = validateSignIn({ email, password });
 
     setErrors(result.errors);
