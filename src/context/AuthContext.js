@@ -6,6 +6,7 @@ import React, {
   useCallback,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { logoutUser } from "../services/authApi";
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
@@ -62,6 +63,12 @@ export function AuthProvider({ children }) {
   // LOGOUT
   // -----------------------------
   const logout = useCallback(async () => {
+    try {
+      await logoutUser();
+    } catch (err) {
+      console.log("Logout API error:", err);
+    }
+
     setUser(null);
 
     try {
