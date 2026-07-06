@@ -10,7 +10,7 @@ import AuthField from '../components/auth/AuthField';
 import { requestPasswordReset } from '../services/authApi';
 import { validateForgotPassword } from '../utils/authValidation';
 
-export default function ForgotPasswordScreen({ goToSignIn }) {
+export default function ForgotPasswordScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState('');
@@ -76,7 +76,7 @@ export default function ForgotPasswordScreen({ goToSignIn }) {
 
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>Remembered it?</Text>
-          <PressScale onPress={goToSignIn} disabled={submitting}>
+          <PressScale onPress={() => navigation.navigate('signin')} disabled={submitting}>
             <Text style={styles.footerLink}>Back to Sign In</Text>
           </PressScale>
         </View>

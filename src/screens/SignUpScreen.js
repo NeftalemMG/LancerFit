@@ -20,7 +20,7 @@ function LoadingLabel({ submitting }) {
   );
 }
 
-export default function SignUpScreen({ onSignUpSuccess, goToSignIn }) {
+export default function SignUpScreen({ onSignUpSuccess, navigation }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -218,7 +218,7 @@ export default function SignUpScreen({ onSignUpSuccess, goToSignIn }) {
 
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>Already have an account?</Text>
-          <PressScale onPress={goToSignIn} disabled={submitting}>
+          <PressScale onPress={() => navigation.navigate("signin")} disabled={submitting}>
             <Text style={styles.footerLink}>Sign In</Text>
           </PressScale>
         </View>

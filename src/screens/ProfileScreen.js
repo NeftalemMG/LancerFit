@@ -4,6 +4,7 @@ import Svg, { Circle } from "react-native-svg";
 import { colors, radius } from "../theme/tokens";
 import { disp, body } from "../theme/typography";
 import { useApp } from "../context/AppContext";
+import { useAuth } from "../context/AuthContext"; 
 import { fmt } from "../data/appData";
 import KnightAvatar from "../components/KnightAvatar";
 import { Flag } from "../components/Glyphs";
@@ -31,15 +32,12 @@ function Toggle({ on }) {
   );
 }
 
-export default function ProfileScreen({
-  goToBadges,
-  goToOnboarding,
-  onLogout,
-}) {
+export default function ProfileScreen({ navigation }) {
   const { player, toast } = useApp();
+  const { logout } = useAuth(); 
+  
   const [settings, setSettings] = React.useState(SETTINGS);
 
-  // Progress ring math (r=57, circumference ~358.1).
   const C = 358.1;
   const offset = C * (1 - player.xp / player.xpMax);
   const rankLabel =
@@ -54,9 +52,7 @@ export default function ProfileScreen({
       setSettings(next);
       toast(s.label + (!s.on ? " on" : " off"));
     } else if (s.label === "Sign out") {
-      onLogout?.();
-    } else if (s.label.includes("Edit")) {
-      goToOnboarding();
+      logout?.(); // Cleans out auth context state tokens natively across entire app
     } else {
       toast(s.label);
     }
@@ -147,7 +143,7 @@ export default function ProfileScreen({
 
       {/* badges link */}
       <PressScale
-        onPress={goToBadges}
+        onPress={() => navigation.navigate("badges")} // 🟢 Changed to use native router navigate
         style={{ marginTop: 14, marginBottom: 9 }}
       >
         <View style={styles.setBadges}>

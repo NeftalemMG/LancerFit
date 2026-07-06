@@ -9,13 +9,13 @@ import { Card, PressScale } from '../components/ui';
 import { ChevronLeft } from '../components/icons';
 import BadgeSheet from '../components/BadgeSheet';
 
-export default function BadgesScreen({ goToProfile }) {
+export default function BadgesScreen({ navigation }) {
   const { openSheet } = useApp();
 
   return (
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
       <View style={styles.backRow}>
-        <PressScale onPress={goToProfile} style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+        <PressScale onPress={() => navigation.navigate("profile")} style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
           <ChevronLeft size={18} color={colors.text2} strokeWidth={2.4} />
           <Text style={styles.backText}>Profile</Text>
         </PressScale>

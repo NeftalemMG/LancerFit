@@ -9,12 +9,11 @@ import AuthHeader from "../components/auth/AuthHeader";
 import AuthField from "../components/auth/AuthField";
 import { loginUser } from "../services/authApi";
 import { validateSignIn } from "../utils/authValidation";
+import { useAuth } from "../context/AuthContext"; // 🟢 1. Import your auth hook
 
-export default function SignInScreen({
-  onSignInSuccess,
-  goToSignUp,
-  goToForgotPassword,
-}) {
+// 🟢 2. Removed legacy prop callbacks. React Navigation passes `navigation` directly.
+export default function SignInScreen({ navigation }) {
+  const { login } = useAuth(); 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState({});
@@ -25,8 +24,9 @@ export default function SignInScreen({
   const submit = async () => {
     if (submitting) return;
 
+    // Mock login handling for local sandbox testing
     if (__DEV__ && email === "test@uwindsor.ca") {
-      onSignInSuccess?.({
+      login({ 
         token: "mock-jwt-token-xyz-123",
         user: {
           id: "mock-user-id",
@@ -40,7 +40,6 @@ export default function SignInScreen({
     }
 
     const result = validateSignIn({ email, password });
-
     setErrors(result.errors);
     setSubmitError("");
 
@@ -48,10 +47,9 @@ export default function SignInScreen({
 
     try {
       setSubmitting(true);
-
       const res = await loginUser(result.values);
-
-      onSignInSuccess?.(res);
+      
+      login(res); 
     } catch (error) {
       if (error?.status === 401) {
         setSubmitError("Invalid email or password.");
@@ -108,7 +106,7 @@ export default function SignInScreen({
             <Text style={styles.submitError}>{submitError}</Text>
           ) : null}
 
-          <PressScale onPress={goToForgotPassword} style={styles.forgotWrap}>
+          <PressScale onPress={() => navigation.navigate("forgot")} style={styles.forgotWrap}>
             <Text style={styles.forgotText}>Forgot Password?</Text>
           </PressScale>
 
@@ -134,7 +132,7 @@ export default function SignInScreen({
 
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>New here?</Text>
-          <PressScale onPress={goToSignUp}>
+          <PressScale onPress={() => navigation.navigate("signup")}>
             <Text style={styles.footerLink}>Sign Up</Text>
           </PressScale>
         </View>

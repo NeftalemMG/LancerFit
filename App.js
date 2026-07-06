@@ -69,7 +69,6 @@ export default function App() {
         style={{ flex: 1, backgroundColor: colors.appBg }}
         onLayout={onLayoutRootView}
       >
-        <StatusBar style="light" />
         <AppProvider>
           <AuthProvider>
             <AppShell />
