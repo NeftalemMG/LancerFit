@@ -59,3 +59,9 @@ export async function resetPassword(payload) {
     body: JSON.stringify(payload),
   });
 }
+
+export async function logoutUser() {
+  return request('/auth/logout', {
+    method: 'POST',
+  });
+}

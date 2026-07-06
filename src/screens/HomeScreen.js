@@ -51,7 +51,7 @@ function QuestRow({ q, onPress, onClaim }) {
   );
 }
 
-export default function HomeScreen({ }) {
+export default function HomeScreen() {
   const { player, quests, bumpQuest, claimQuest, checkIn } = useApp();
   const pct = Math.min(1, player.xp / player.xpMax) * 100;
   const rankLabel = player.level >= 8 ? 'Knight · Tier III' : 'Knight · Tier II';
@@ -129,7 +129,7 @@ export default function HomeScreen({ }) {
         </PressScale>
       </Card>
 
-      <SectionRow title="Today's quests" action="See all" onAction={} />
+      <SectionRow title="Today's quests"/>
       {quests.slice(0, 3).map((q) => (
         <QuestRow key={q.id} q={q} onPress={() => bumpQuest(q.id)} onClaim={() => claimQuest(q.id)} />
       ))}
