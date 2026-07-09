@@ -9,6 +9,7 @@ import { PressScale, ScreenHeader } from '../components/ui';
 import { SportIcon } from '../components/SportIcons';
 import { AREAS, DURATIONS } from '../data/activityData';
 import { ChevronLeft, CheckIcon, FlameIcon } from '../components/icons';
+import { logExercise } from '../services/statsApi'; 
 
 // map an area's accent key -> concrete palette colours
 const ACCENTS = {
@@ -118,11 +119,21 @@ export default function LogScreen() {
   const ac = area ? ACCENTS[area.accent] : ACCENTS.gold;
   const points = mins; // 1 min = 1 point
 
-  const commit = () => {
-    addXP(points);
-    toast(`${sub.name} logged · +${points} pts`);
-    setArea(null); setSub(null); setMins(30);
-  };
+  const commit = async () => {
+  addXP(points);
+  toast(`${sub.name} logged · +${points} pts`);
+  const logged = { area, sub, mins };
+  setArea(null); setSub(null); setMins(30);
+  try {
+    await logExercise({
+      exerciseKey: logged.sub.id || logged.sub.key || logged.sub.name,
+      exerciseName: logged.sub.name,
+      areaKey: logged.area?.id || logged.area?.key || null,
+      durationMin: logged.mins,
+      unit: 'min',
+    });
+  } catch (e) { /* offline: local XP already updated */ }
+};
 
   // ---------- STAGE 1: pick an area ----------
   if (!area) {

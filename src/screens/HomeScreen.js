@@ -6,6 +6,7 @@ import { disp, body } from '../theme/typography';
 import { useApp } from '../context/AppContext';
 import { fmt } from '../data/appData';
 import KnightAvatar from '../components/KnightAvatar';
+import HomeStatsWidget from '../components/stats/HomeStatsWidget';
 import { QuestGlyph, questIconColor, Flag } from '../components/Glyphs';
 import { Card, PressScale, ProgressBar, SectionRow, Eyebrow } from '../components/ui';
 import { FlameIcon, PinIcon, ScanIcon, CheckIcon } from '../components/icons';
@@ -51,7 +52,7 @@ function QuestRow({ q, onPress, onClaim }) {
   );
 }
 
-export default function HomeScreen() {
+export default function HomeScreen({navigation}) {
   const { player, quests, bumpQuest, claimQuest, checkIn } = useApp();
   const pct = Math.min(1, player.xp / player.xpMax) * 100;
   const rankLabel = player.level >= 8 ? 'Knight · Tier III' : 'Knight · Tier II';
@@ -129,6 +130,7 @@ export default function HomeScreen() {
         </PressScale>
       </Card>
 
+      <HomeStatsWidget navigation={navigation} />
       <SectionRow title="Today's quests"/>
       {quests.slice(0, 3).map((q) => (
         <QuestRow key={q.id} q={q} onPress={() => bumpQuest(q.id)} onClaim={() => claimQuest(q.id)} />

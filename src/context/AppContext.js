@@ -1,29 +1,54 @@
-import React, { createContext, useContext, useRef, useState, useCallback } from 'react';
+import React, { createContext, useContext, useRef, useState, useCallback, useEffect } from 'react';
 import { Animated, Easing } from 'react-native';
 import { initialState, initialQuests, CHALLENGES } from '../data/appData';
-
-// ============================================================
-// AppContext — the single source of truth for player progress,
-// quests, and challenge membership. Mirrors the prototype's
-// mutable `state` object plus its addXP / check-in / claim logic,
-// but as proper React state so the UI re-renders.
-// ============================================================
+import { fetchActiveChallenges, joinChallenge as apiJoinChallenge } from '../services/challengeApi';
+import { useRealtime } from '../services/realtime';
+import { useAuth } from './AuthContext';
 
 const AppContext = createContext(null);
 export const useApp = () => useContext(AppContext);
 
+function toAppChallenge(c) {
+  return {
+    id: c.id, type: c.type || c.category || 'Challenge', title: c.title,
+    sub: c.description ? c.description.slice(0, 60) : `${c.goal ?? ''} ${c.unit ?? ''}`.trim(),
+    xp: c.xpReward ?? c.podium?.first ?? 0, joined: c.participants ?? 0,
+    img: c.imageUrl || undefined, desc: c.description || '',
+    days: c.endDate ? Math.max(1, Math.ceil((new Date(c.endDate) - new Date(c.startDate)) / 86400000)) : 7,
+    unit: c.unit, goal: c.goal, _live: true,
+  };
+}
+
 export function AppProvider({ children }) {
+  const { isAuthenticated } = useAuth();
   const [player, setPlayer] = useState({ ...initialState });
   const [quests, setQuests] = useState(() => initialQuests.map((q) => ({ ...q })));
   const [challenges, setChallenges] = useState(() => CHALLENGES.map((c) => ({ ...c })));
   const [joinedChals, setJoinedChals] = useState({});
 
-  // ---- Toast ----
+  const loadChallenges = useCallback(async () => {
+    try {
+      const live = await fetchActiveChallenges();
+      if (Array.isArray(live) && live.length) setChallenges(live.map(toAppChallenge));
+    } catch {}
+  }, []);
+  useEffect(() => { loadChallenges(); }, [loadChallenges, isAuthenticated]);
+
+  useRealtime('challenge:created', useCallback((payload) => {
+    setChallenges((cs) => {
+      if (cs.some((c) => String(c.id) === String(payload.id))) return cs;
+      return [toAppChallenge(payload), ...cs];
+    });
+    toast(`New challenge: ${payload.title}`);
+  }, []));
+  useRealtime('challenge:deleted', useCallback((payload) => {
+    setChallenges((cs) => cs.filter((c) => String(c.id) !== String(payload.challengeId)));
+  }, []));
+
   const [toastMsg, setToastMsg] = useState('');
   const toastY = useRef(new Animated.Value(16)).current;
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const toastTimer = useRef(null);
-
   const toast = useCallback((msg) => {
     setToastMsg(msg);
     Animated.parallel([
@@ -39,91 +64,45 @@ export function AppProvider({ children }) {
     }, 1900);
   }, [toastOpacity, toastY]);
 
-  // ---- Bottom sheet ----
   const [sheet, setSheet] = useState({ open: false, content: null, flush: false });
-  const openSheet = useCallback((content, flush = false) => {
-    setSheet({ open: true, content, flush });
-  }, []);
+  const openSheet = useCallback((content, flush = false) => setSheet({ open: true, content, flush }), []);
   const closeSheet = useCallback(() => setSheet((s) => ({ ...s, open: false })), []);
 
-  // ---- XP / level logic (ported from addXP) ----
   const addXP = useCallback((n) => {
     setPlayer((p) => {
-      let xp = p.xp + n;
-      let lifetime = p.lifetime + n;
-      let level = p.level;
-      let xpMax = p.xpMax;
-      let leveledUp = false;
-      if (xp >= xpMax) {
-        xp -= xpMax;
-        level += 1;
-        xpMax = 2200;
-        leveledUp = true;
-      }
-      if (leveledUp) {
-        setTimeout(() => toast('Level up — you reached Lancer Level ' + level), 520);
-      }
+      let xp = p.xp + n, lifetime = p.lifetime + n, level = p.level, xpMax = p.xpMax, leveledUp = false;
+      if (xp >= xpMax) { xp -= xpMax; level += 1; xpMax = 2200; leveledUp = true; }
+      if (leveledUp) setTimeout(() => toast('Level up — you reached Lancer Level ' + level), 520);
       return { ...p, xp, lifetime, level, xpMax };
     });
   }, [toast]);
 
-  // ---- Check-in (ported from scan-btn handler) ----
   const checkIn = useCallback(() => {
-    if (player.checkedIn) {
-      toast('Already checked in today');
-      return;
-    }
-    setPlayer((p) => ({
-      ...p,
-      checkedIn: true,
-      streak: p.streak + 1,
-      workouts: p.workouts + 1,
-    }));
+    if (player.checkedIn) { toast('Already checked in today'); return; }
+    setPlayer((p) => ({ ...p, checkedIn: true, streak: p.streak + 1, workouts: p.workouts + 1 }));
     addXP(75);
-    setTimeout(() => {
-      setPlayer((p) => {
-        toast('Gym visit confirmed · +75 XP · ' + p.streak + '-day streak');
-        return p;
-      });
-    }, 50);
+    setTimeout(() => { setPlayer((p) => { toast('Gym visit confirmed · +75 XP · ' + p.streak + '-day streak'); return p; }); }, 50);
   }, [player.checkedIn, addXP, toast]);
 
-  // ---- Quest interactions ----
   const bumpQuest = useCallback((id) => {
-    setQuests((qs) =>
-      qs.map((q) => {
-        if (q.id !== id) return q;
-        if (q.claimed) {
-          toast('Already claimed');
-          return q;
-        }
-        if (q.cur < q.max) {
-          const cur = q.cur + 1;
-          if (cur >= q.max) toast(`${q.title} ready to claim`);
-          return { ...q, cur };
-        }
-        return q;
-      })
-    );
+    setQuests((qs) => qs.map((q) => {
+      if (q.id !== id) return q;
+      if (q.claimed) { toast('Already claimed'); return q; }
+      if (q.cur < q.max) { const cur = q.cur + 1; if (cur >= q.max) toast(`${q.title} ready to claim`); return { ...q, cur }; }
+      return q;
+    }));
   }, [toast]);
 
   const claimQuest = useCallback((id) => {
-    setQuests((qs) =>
-      qs.map((q) => {
-        if (q.id !== id || q.claimed) return q;
-        addXP(q.xp);
-        toast(`Quest cleared · +${q.xp} XP`);
-        return { ...q, claimed: true };
-      })
-    );
+    setQuests((qs) => qs.map((q) => {
+      if (q.id !== id || q.claimed) return q;
+      addXP(q.xp); toast(`Quest cleared · +${q.xp} XP`);
+      return { ...q, claimed: true };
+    }));
   }, [addXP, toast]);
 
-  // ---- Featured Tower Challenge join (ported from btn-join) ----
   const joinTower = useCallback(() => {
-    if (player.joinedTower) {
-      toast("You're already in the climb");
-      return;
-    }
+    if (player.joinedTower) { toast("You're already in the climb"); return; }
     setPlayer((p) => ({ ...p, joinedTower: true }));
     setQuests((qs) => [
       { id: 'tower-q', icon: 'flag', title: 'Tower Challenge', sub: 'Climb 50 floors at Toldo', cur: 0, max: 50, xp: 500, gold: true },
@@ -132,28 +111,27 @@ export function AppProvider({ children }) {
     toast('Tower Challenge joined');
   }, [player.joinedTower, toast]);
 
-  // ---- Challenge join (ported from openChallenge) ----
-  const joinChallenge = useCallback((c) => {
-    if (joinedChals[c.id]) {
-      closeSheet();
-      return;
-    }
+  const joinChallenge = useCallback(async (c) => {
+    if (joinedChals[c.id]) { closeSheet(); return; }
     setJoinedChals((j) => ({ ...j, [c.id]: true }));
-    setChallenges((cs) => cs.map((x) => (x.id === c.id ? { ...x, joined: x.joined + 1 } : x)));
+    setChallenges((cs) => cs.map((x) => (x.id === c.id ? { ...x, joined: (x.joined || 0) + 1 } : x)));
     closeSheet();
     toast(`Joined ${c.title} · ${c.type}`);
+    if (c._live) {
+      try { await apiJoinChallenge(c.id); }
+      catch (err) {
+        setJoinedChals((j) => { const n = { ...j }; delete n[c.id]; return n; });
+        toast(err?.message || 'Could not join challenge');
+      }
+    }
   }, [joinedChals, closeSheet, toast]);
 
   const updatePlayer = useCallback((patch) => setPlayer((p) => ({ ...p, ...patch })), []);
 
   const value = {
-    player, updatePlayer,
-    quests, bumpQuest, claimQuest,
-    challenges, joinedChals, joinChallenge, joinTower,
-    addXP, checkIn,
-    toast, toastMsg, toastY, toastOpacity,
-    sheet, openSheet, closeSheet,
+    player, updatePlayer, quests, bumpQuest, claimQuest,
+    challenges, joinedChals, joinChallenge, joinTower, reloadChallenges: loadChallenges,
+    addXP, checkIn, toast, toastMsg, toastY, toastOpacity, sheet, openSheet, closeSheet,
   };
-
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

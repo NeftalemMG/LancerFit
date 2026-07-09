@@ -69,11 +69,11 @@ export default function App() {
         style={{ flex: 1, backgroundColor: colors.appBg }}
         onLayout={onLayoutRootView}
       >
-        <AppProvider>
-          <AuthProvider>
+        <AuthProvider>
+          <AppProvider>
             <AppShell />
-          </AuthProvider>
-        </AppProvider>
+          </AppProvider>
+        </AuthProvider>
       </View>
     </SafeAreaProvider>
   );
