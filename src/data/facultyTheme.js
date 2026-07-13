@@ -1,14 +1,10 @@
 // src/data/facultyTheme.js
 //
 // Maps each faculty to (a) its accent color — matching the "Design System"
-// swatch names you provided — and (b) resolves its level-up avatar image.
+// and (b) resolves its level-up avatar image.
 //
 // LEVELS: 5 avatar tiers. Player's Lancer level maps to a tier so the avatar
 // evolves: Squire(1) -> Knight(2) -> Hero(3) -> Legend(4) -> Lancer(5).
-//
-// The actual image requires live in avatarSources.js (the only file you edit
-// when adding art). Until images exist, getAvatarSource returns null and the
-// UI shows a themed crest fallback.
 
 import { AVATAR_SOURCES } from "./avatarSources";
 
