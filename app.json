@@ -15,7 +15,11 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": false,
-      "userInterfaceStyle": "dark"
+      "userInterfaceStyle": "dark",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to track your workouts and provide personalized fitness recommendations.",
+        "NSMotionUsageDescription": "This app uses motion data to track your physical activity and provide personalized fitness recommendations."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +27,11 @@
         "backgroundColor": "#0B2742"
       },
       "userInterfaceStyle": "dark",
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACTIVITY_RECOGNITION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

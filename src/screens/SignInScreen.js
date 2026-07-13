@@ -9,7 +9,7 @@ import AuthHeader from "../components/auth/AuthHeader";
 import AuthField from "../components/auth/AuthField";
 import { loginUser } from "../services/authApi";
 import { validateSignIn } from "../utils/authValidation";
-import { useAuth } from "../context/AuthContext"; 
+import { useAuth } from "../context/AuthContext";
 
 export default function SignInScreen({ navigation }) {
   const { login } = useAuth(); 

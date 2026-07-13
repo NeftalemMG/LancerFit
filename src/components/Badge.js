@@ -1,11 +1,11 @@
-import React from 'react';
-import Svg, { Path, Circle, Rect, G, Text as SvgText } from 'react-native-svg';
-
-// ============================================================
+//
 // BADGES — a shape (shield / hex / medal / pennant / star / diamond)
 // plus a per-badge line icon, or a padlock when locked.
 // Ported from the prototype's badgeSVG().
-// ============================================================
+//
+
+import React from 'react';
+import Svg, { Path, Circle, Rect, G, Text as SvgText } from 'react-native-svg';
 
 const SHAPES = {
   shield: 'M50 8 L84 19 V50 Q84 78 50 92 Q16 78 16 50 V19 Z',

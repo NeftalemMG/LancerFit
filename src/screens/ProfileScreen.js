@@ -6,8 +6,9 @@ import { disp, body } from "../theme/typography";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext"; 
 import { fmt } from "../data/appData";
-import KnightAvatar from "../components/KnightAvatar";
-import { Flag } from "../components/Glyphs";
+import FacultyAvatar from "../components/FacultyAvatar";
+import { flagFor } from "../data/countries";
+import { tierName, themeForFaculty } from "../data/facultyTheme";
 import { Card, PressScale, SectionRow } from "../components/ui";
 import {
   SettingsIcon,
@@ -16,10 +17,8 @@ import {
 } from "../components/icons";
 
 const SETTINGS = [
-  { ic: "edit", label: "Edit knight & faculty", type: "link" },
   { ic: "bell", label: "Quest reminders", type: "toggle", on: true },
   { ic: "pin", label: "Auto check-in at Toldo", type: "toggle", on: true },
-  { ic: "people", label: "Show me on leaderboards", type: "toggle", on: true },
   { ic: "shield", label: "Privacy & data (FIPPA)", type: "link" },
   { ic: "out", label: "Sign out", type: "link" },
 ];
@@ -38,12 +37,17 @@ export default function ProfileScreen({ navigation }) {
   
   const [settings, setSettings] = React.useState(SETTINGS);
 
+  const level = player.level ?? 1;
+  const xp = player.xp ?? 0;
+  const xpMax = player.xpMax ?? 2000;
+  const facultyKey = player.facultyKey;
+  const facultyLabel = player.facultyLabel || themeForFaculty(facultyKey).name || "Faculty";
+  const facultyColor = themeForFaculty(facultyKey).accent;
+  const flagCode = player.flagCode || player.flag;
+
   const C = 358.1;
-  const offset = C * (1 - player.xp / player.xpMax);
-  const rankLabel =
-    player.level >= 8
-      ? `Lv ${player.level} · Knight III`
-      : `Lv ${player.level} · Knight II`;
+  const offset = C * (1 - xp / xpMax);
+  const rankLabel = `Lv ${level} · ${tierName(level)}`;
 
   const onRow = (i) => {
     const s = settings[i];
@@ -94,23 +98,19 @@ export default function ProfileScreen({ navigation }) {
             />
           </Svg>
           <View style={styles.profAv}>
-            <KnightAvatar
-              variant={player.avatar}
-              plume={player.faculty.c}
-              size={80}
-            />
+            <FacultyAvatar facultyKey={facultyKey} level={level} size={92} goldBg />
             <View style={styles.profFlag}>
-              <Flag code={player.flag} width={26} />
+              <Text style={{ fontSize: 22 }}>{flagFor(flagCode)}</Text>
             </View>
           </View>
         </View>
-        <Text style={styles.name}>{player.name}</Text>
+        <Text style={styles.name}>{player.fullName || player.name}</Text>
         <View style={styles.chips}>
           <View style={styles.chip}>
             <View
-              style={[styles.fdot, { backgroundColor: player.faculty.c }]}
+              style={[styles.fdot, { backgroundColor: facultyColor }]}
             />
-            <Text style={styles.chipText}>{player.faculty.name}</Text>
+            <Text style={styles.chipText}>{facultyLabel}</Text>
           </View>
           <View style={[styles.chip, styles.chipLv]}>
             <Text style={[styles.chipText, { color: colors.gold }]}>
@@ -136,14 +136,14 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.stileK}>Current streak</Text>
         </Card>
         <Card style={[styles.stile, styles.stileFull]}>
-          <Text style={styles.stileV}>{fmt(player.lifetime)}</Text>
+          <Text style={styles.stileV}>{fmt(player.totalXp ?? player.lifetime ?? 0)}</Text>
           <Text style={styles.stileK}>Lifetime XP earned</Text>
         </Card>
       </View>
 
       {/* badges link */}
       <PressScale
-        onPress={() => navigation.navigate("badges")}
+        onPress={() => navigation.navigate("badges")} //Changed to use native router navigate
         style={{ marginTop: 14, marginBottom: 9 }}
       >
         <View style={styles.setBadges}>

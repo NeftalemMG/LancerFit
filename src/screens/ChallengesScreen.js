@@ -21,6 +21,7 @@ import {
   SectionRow,
   ScreenHeader,
 } from "../components/ui";
+import GlassTitle from "../components/GlassTitle";
 import { PennantIcon } from "../components/icons";
 import ChallengeSheet from "../components/ChallengeSheet";
 
@@ -219,10 +220,12 @@ export default function ChallengesScreen() {
       contentContainerStyle={styles.scroll}
       showsVerticalScrollIndicator={false}
     >
-      <ScreenHeader
-        title="Challenges"
-        subtitle="Join campus challenges and clear daily quests to bank XP."
-      />
+      <View style={styles.glassHeader}>
+        <GlassTitle
+          title="Challenges"
+          subtitle="Join campus challenges and clear daily quests to bank XP."
+        />
+      </View>
       <FeaturedQuest />
 
       <SectionRow title="Browse challenges" />
@@ -244,6 +247,7 @@ export default function ChallengesScreen() {
 }
 
 const styles = StyleSheet.create({
+  glassHeader: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6 },
   scroll: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 124 },
 
   featured: {

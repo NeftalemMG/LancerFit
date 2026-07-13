@@ -1,640 +1,376 @@
-import React, { useState } from "react";
-import { View, Text, ScrollView, StyleSheet } from "react-native";
+// Log an activity. Rebuilt for clean, pixel-aligned mobile layout:
+//   • Uniform activity tiles in a strict 2-column grid — every tile is the SAME
+//     height/width, full names on two lines, image + icon overlay.
+//   • Gold back button (returns to Home) via GoldBackHeader.
+//   • Duration quick-picks + manual "any minutes" entry.
+//   • Custom "Other" activities: add / pin / delete, persisted on the backend.
+//   • Today / Yesterday only. 1 minute = 1 point. Writes a real ExerciseSession.
+
+import React, { useState, useEffect, useCallback } from "react";
+import { View, Text, ScrollView, StyleSheet, Image, TextInput, Modal, Pressable, ActivityIndicator, Dimensions, Keyboard } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, {
-  Circle,
-  Defs,
-  LinearGradient as SvgGrad,
-  Stop,
-} from "react-native-svg";
 import { colors, radius, shadow } from "../theme/tokens";
 import { disp, body } from "../theme/typography";
 import { useApp } from "../context/AppContext";
-import { PressScale, ScreenHeader } from "../components/ui";
+import { PressScale } from "../components/ui";
+import GoldBackHeader from "../components/GoldBackHeader";
 import { SportIcon } from "../components/SportIcons";
 import { AREAS, DURATIONS } from "../data/activityData";
-import { ChevronLeft, CheckIcon, FlameIcon } from "../components/icons";
+import { imageForActivity } from "../data/activityImages";
+import { CheckIcon } from "../components/icons";
 import { logExercise } from "../services/statsApi";
+import {
+  fetchCustomActivities, createCustomActivity, pinCustomActivity, deleteCustomActivity,
+} from "../services/customActivityApi";
 
-// map an area's accent key -> concrete palette colours
-const ACCENTS = {
-  gold: { main: colors.gold, soft: colors.goldSoft, line: colors.goldLine },
-  blue: { main: colors.blue2, soft: colors.blueSoft, line: colors.blueLine },
-  green: { main: colors.green, soft: colors.greenSoft, line: colors.greenLine },
-  plum: {
-    main: colors.plum,
-    soft: "rgba(169,139,201,0.16)",
-    line: "rgba(169,139,201,0.4)",
-  },
-  coral: {
-    main: colors.coral,
-    soft: "rgba(224,122,95,0.16)",
-    line: "rgba(224,122,95,0.4)",
-  },
-};
+// Two equal columns with a consistent gutter.
+const H_PADDING = 18;
+const GUTTER = 12;
+const COL_W = (Dimensions.get("window").width - H_PADDING * 2 - GUTTER) / 2;
+const TILE_H = 116;
 
-const WEEK_DAYS = ["M", "T", "W", "T", "F", "S", "S"];
-const WEEK_VALS = [0.7, 0.45, 0.95, 0.3, 0.8, 0.55, 0.2];
-const TODAY = 4;
+function ActivityTile({ sub, selected, onPress }) {
+  return (
+    <PressScale onPress={onPress} style={{ width: COL_W }}>
+      <View style={[styles.tile, selected && styles.tileSelected]}>
+        <Image source={{ uri: imageForActivity(sub) }} style={styles.tileImg} resizeMode="cover" />
+        <LinearGradient colors={["rgba(11,26,45,0.15)", "rgba(11,26,45,0.90)"]} style={StyleSheet.absoluteFill} />
+        <View style={styles.tileIconChip}>
+          <SportIcon name={sub.icon} size={15} color="#fff" />
+        </View>
+        {selected && (
+          <View style={styles.tileCheck}>
+            <CheckIcon size={13} color={colors.goldInk} strokeWidth={3} />
+          </View>
+        )}
+        <Text style={styles.tileName} numberOfLines={2}>{sub.name}</Text>
+      </View>
+    </PressScale>
+  );
+}
 
-// ---- Rich daily-steps panel (ring + weekly bars + stat strip) ----
-function DailySteps({ steps = 6320, goal = 10000 }) {
-  const pct = Math.min(1, steps / goal);
-  const R = 40;
-  const C = 2 * Math.PI * R;
-  // rough derived figures so the panel feels informative
-  const km = (steps * 0.000762).toFixed(1);
-  const kcal = Math.round(steps * 0.045);
-  const activeMin = Math.round(steps / 110);
+function CustomChip({ item, selected, onPress, onLongPress }) {
+  return (
+    <PressScale onPress={onPress} onLongPress={onLongPress}>
+      <View style={[styles.customChip, selected && styles.customChipSelected]}>
+        {item.pinned && <Text style={styles.pinDot}>📌</Text>}
+        <Text style={[styles.customChipText, selected && { color: "#fff" }]} numberOfLines={1}>
+          {item.name}
+        </Text>
+      </View>
+    </PressScale>
+  );
+}
+
+export default function LogScreen({ navigation }) {
+  const { toast, refreshMe } = useApp();
+
+  const [area, setArea] = useState(null);
+  const [sub, setSub] = useState(null);
+  const [mins, setMins] = useState(30);
+  const [manual, setManual] = useState("");
+  const [day, setDay] = useState("today");
+  const [submitting, setSubmitting] = useState(false);
+
+  const [customs, setCustoms] = useState([]);
+  const [customSel, setCustomSel] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [manageItem, setManageItem] = useState(null);
+
+  const loadCustoms = useCallback(async () => {
+    try { setCustoms(await fetchCustomActivities()); } catch { /* offline */ }
+  }, []);
+  useEffect(() => { loadCustoms(); }, [loadCustoms]);
+
+  const manualNum = parseInt(manual, 10);
+  const effectiveMins = Number.isFinite(manualNum) && manualNum > 0 ? manualNum : mins;
+  const points = effectiveMins;
+  const hasSelection = !!sub || !!customSel;
+
+  const performedAtISO = () => {
+    const d = new Date();
+    if (day === "yesterday") d.setDate(d.getDate() - 1);
+    return d.toISOString();
+  };
+
+  const pickCatalog = (a, s) => { setArea(a); setSub(s); setCustomSel(null); };
+  const pickCustom = (c) => { setCustomSel(c); setSub(null); setArea(null); };
+
+  const goBack = () => {
+    if (navigation?.canGoBack?.()) navigation.goBack();
+    else navigation?.navigate?.("home");
+  };
+
+  const commit = async () => {
+    if (!hasSelection || submitting) return;
+    setSubmitting(true);
+    const isCustom = !!customSel;
+    const name = isCustom ? customSel.name : sub.name;
+    const key = isCustom ? customSel.key : sub.id;
+    try {
+      await logExercise({
+        exerciseKey: key, exerciseName: name,
+        areaKey: isCustom ? null : area?.id,
+        durationMin: effectiveMins, unit: "min",
+        performedAt: performedAtISO(), isCustom,
+      });
+      toast(`${name} logged · +${points} pts${day === "yesterday" ? " · yesterday" : ""}`);
+      setArea(null); setSub(null); setCustomSel(null); setMins(30); setManual(""); setDay("today");
+      loadCustoms();
+      refreshMe && refreshMe();
+    } catch (e) {
+      toast(e?.message || "Couldn't log activity");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const addCustom = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    try {
+      const created = await createCustomActivity(name);
+      setNewName(""); setShowAdd(false);
+      await loadCustoms();
+      pickCustom(created);
+    } catch (e) { toast(e?.message || "Couldn't add activity"); }
+  };
+
+  const togglePin = async (item) => {
+    try { await pinCustomActivity(item.id, !item.pinned); setManageItem(null); loadCustoms(); }
+    catch (e) { toast(e?.message || "Couldn't update"); }
+  };
+
+  const removeCustom = async (item) => {
+    try {
+      await deleteCustomActivity(item.id);
+      setManageItem(null);
+      if (customSel?.id === item.id) setCustomSel(null);
+      loadCustoms();
+    } catch (e) { toast(e?.message || "Couldn't delete"); }
+  };
 
   return (
-    <View style={ds.card}>
-      <View style={ds.topRow}>
-        <View style={ds.ringWrap}>
-          <Svg width={104} height={104} viewBox="0 0 104 104">
-            <Defs>
-              <SvgGrad id="stepGrad" x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0" stopColor={colors.goldDim} />
-                <Stop offset="1" stopColor={colors.gold} />
-              </SvgGrad>
-            </Defs>
-            <Circle
-              cx={52}
-              cy={52}
-              r={R}
-              stroke="rgba(255,255,255,0.10)"
-              strokeWidth={9}
-              fill="none"
-            />
-            <Circle
-              cx={52}
-              cy={52}
-              r={R}
-              stroke="url(#stepGrad)"
-              strokeWidth={9}
-              fill="none"
-              strokeLinecap="round"
-              strokeDasharray={`${C}`}
-              strokeDashoffset={C * (1 - pct)}
-              transform="rotate(-90 52 52)"
-            />
-          </Svg>
-          <View style={ds.ringCenter}>
-            <Text style={ds.ringPct}>{Math.round(pct * 100)}%</Text>
-            <Text style={ds.ringLbl}>of goal</Text>
-          </View>
-        </View>
-
-        <View style={{ flex: 1 }}>
-          <Text style={ds.ey}>Daily steps</Text>
-          <View style={ds.stepRow}>
-            <Text style={ds.stepBig}>{steps.toLocaleString("en-CA")}</Text>
-            <Text style={ds.stepGoal}>/ {goal.toLocaleString("en-CA")}</Text>
-          </View>
-          <View style={ds.bars}>
-            {WEEK_DAYS.map((d, i) => {
-              const today = i === TODAY;
+    <View style={styles.root}>
+      <GoldBackHeader
+        title="Log activity"
+        subtitle="1 minute = 1 point"
+        onBack={goBack}
+        right={
+          <View style={styles.dayToggle}>
+            {[{ k: "today", l: "Today" }, { k: "yesterday", l: "Yest." }].map((d) => {
+              const on = day === d.k;
               return (
-                <View key={i} style={ds.barCol}>
-                  <View style={ds.barTrack}>
-                    <View
-                      style={{
-                        height: `${Math.max(10, WEEK_VALS[i] * 100)}%`,
-                        width: "100%",
-                        borderRadius: 6,
-                        backgroundColor: today ? colors.gold : colors.blueLine,
-                      }}
-                    />
-                  </View>
-                  <Text style={[ds.barDay, today && { color: colors.gold }]}>
-                    {d}
-                  </Text>
-                </View>
+                <Pressable key={d.k} onPress={() => setDay(d.k)} style={[styles.dayPill, on && styles.dayPillOn]}>
+                  <Text style={[styles.dayPillText, on && styles.dayPillTextOn]}>{d.l}</Text>
+                </Pressable>
               );
             })}
           </View>
-        </View>
-      </View>
+        }
+      />
 
-      {/* stat strip */}
-      <View style={ds.strip}>
-        <View style={ds.stat}>
-          <Text style={ds.statNum}>{km}</Text>
-          <Text style={ds.statLbl}>km</Text>
+      <ScrollView
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Custom activities */}
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>Your activities</Text>
+          <PressScale onPress={() => setShowAdd(true)}>
+            <View style={styles.addBtn}><Text style={styles.addLink}>+ Add</Text></View>
+          </PressScale>
         </View>
-        <View style={ds.divider} />
-        <View style={ds.stat}>
-          <Text style={ds.statNum}>{kcal}</Text>
-          <Text style={ds.statLbl}>kcal</Text>
+        <View style={styles.customRow}>
+          {customs.length === 0 ? (
+            <Text style={styles.customEmpty}>Add your own activity (e.g. Rock Climbing) with "+ Add". Long-press to pin or delete.</Text>
+          ) : (
+            customs.map((c) => (
+              <CustomChip key={c.id} item={c} selected={customSel?.id === c.id}
+                onPress={() => pickCustom(c)} onLongPress={() => setManageItem(c)} />
+            ))
+          )}
         </View>
-        <View style={ds.divider} />
-        <View style={ds.stat}>
-          <Text style={ds.statNum}>{activeMin}</Text>
-          <Text style={ds.statLbl}>active min</Text>
-        </View>
-        <View style={ds.divider} />
-        <View style={ds.stat}>
-          <View style={ds.flameRow}>
-            <FlameIcon size={13} color={colors.gold} />
-            <Text style={[ds.statNum, { color: colors.gold }]}>12</Text>
+
+        {/* Catalog areas — strict 2-col grid, uniform tiles */}
+        {AREAS.map((a) => (
+          <View key={a.id} style={styles.areaBlock}>
+            <Text style={styles.areaName}>{a.name}</Text>
+            <View style={styles.grid}>
+              {a.subs.map((s) => (
+                <ActivityTile key={s.id} sub={s}
+                  selected={sub?.id === s.id && area?.id === a.id}
+                  onPress={() => pickCatalog(a, s)} />
+              ))}
+            </View>
           </View>
-          <Text style={ds.statLbl}>day streak</Text>
-        </View>
-      </View>
+        ))}
+      </ScrollView>
+
+      {/* Half-screen sheet: opens when an activity is picked, sits ABOVE the
+          tab bar so the duration + log controls are never covered. */}
+      <Modal visible={hasSelection} transparent animationType="slide" onRequestClose={() => { setSub(null); setCustomSel(null); }}>
+        <Pressable style={styles.sheetBackdrop} onPress={() => { Keyboard.dismiss(); setSub(null); setCustomSel(null); }}>
+          <Pressable style={styles.sheet} onPress={() => Keyboard.dismiss()}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle} numberOfLines={1}>
+              {customSel ? customSel.name : sub?.name}
+            </Text>
+            <Text style={styles.sheetSub}>{day === "yesterday" ? "Logging for yesterday" : "Logging for today"} · 1 min = 1 point</Text>
+
+            <View style={styles.durRow}>
+              {DURATIONS.map((d) => {
+                const on = !manual && mins === d;
+                return (
+                  <PressScale key={d} onPress={() => { setMins(d); setManual(""); Keyboard.dismiss(); }}>
+                    <View style={[styles.durChip, on && styles.durChipOn]}>
+                      <Text style={[styles.durText, on && styles.durTextOn]}>{d}</Text>
+                    </View>
+                  </PressScale>
+                );
+              })}
+              <View style={[styles.manualBox, manual ? styles.manualBoxOn : null]}>
+                <TextInput
+                  value={manual}
+                  onChangeText={setManual}
+                  keyboardType="number-pad"
+                  placeholder="Min"
+                  placeholderTextColor={colors.text3}
+                  style={styles.manualInput}
+                  maxLength={4}
+                  returnKeyType="done"
+                  onSubmitEditing={() => Keyboard.dismiss()}
+                  blurOnSubmit
+                />
+              </View>
+            </View>
+
+            {/* Explicit Done bar appears while typing so the numeric pad (which has
+                no return key) can always be dismissed. */}
+            {manual !== "" && (
+              <Pressable onPress={() => Keyboard.dismiss()} style={styles.kbDone}>
+                <Text style={styles.kbDoneText}>Done entering minutes</Text>
+              </Pressable>
+            )}
+
+            <Text style={styles.sheetPts}>+{points} points</Text>
+
+            <PressScale onPress={commit} disabled={submitting}>
+              <LinearGradient colors={[colors.gold, colors.goldDim]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.logBtn}>
+                {submitting ? <ActivityIndicator color={colors.goldInk} />
+                  : <Text style={styles.logBtnText}>Log {effectiveMins} min · +{points} pts</Text>}
+              </LinearGradient>
+            </PressScale>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Add modal */}
+      <Modal visible={showAdd} transparent animationType="fade" onRequestClose={() => setShowAdd(false)}>
+        <Pressable style={styles.modalRoot} onPress={() => setShowAdd(false)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>New activity</Text>
+            <Text style={styles.modalSub}>Give it a name. You can pin or delete it later.</Text>
+            <TextInput value={newName} onChangeText={setNewName} placeholder="e.g. Rock Climbing"
+              placeholderTextColor={colors.text3} style={styles.modalInput} autoFocus returnKeyType="done" onSubmitEditing={addCustom} />
+            <View style={styles.modalBtns}>
+              <PressScale onPress={() => { setShowAdd(false); setNewName(""); }} style={{ flex: 1 }}>
+                <View style={styles.modalCancel}><Text style={styles.modalCancelText}>Cancel</Text></View>
+              </PressScale>
+              <PressScale onPress={addCustom} style={{ flex: 1 }}>
+                <LinearGradient colors={[colors.blue2, colors.blue]} style={styles.modalAdd}>
+                  <Text style={styles.modalAddText}>Add</Text>
+                </LinearGradient>
+              </PressScale>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Manage modal */}
+      <Modal visible={!!manageItem} transparent animationType="fade" onRequestClose={() => setManageItem(null)}>
+        <Pressable style={styles.modalRoot} onPress={() => setManageItem(null)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>{manageItem?.name}</Text>
+            <PressScale onPress={() => togglePin(manageItem)}>
+              <View style={styles.manageRow}><Text style={styles.manageText}>{manageItem?.pinned ? "📌  Unpin from top" : "📌  Pin to top"}</Text></View>
+            </PressScale>
+            <PressScale onPress={() => removeCustom(manageItem)}>
+              <View style={styles.manageRow}><Text style={[styles.manageText, { color: "#E5695B" }]}>🗑  Delete activity</Text></View>
+            </PressScale>
+            <PressScale onPress={() => setManageItem(null)}>
+              <View style={[styles.manageRow, { justifyContent: "center" }]}><Text style={styles.manageCancel}>Cancel</Text></View>
+            </PressScale>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
 
-export default function LogScreen() {
-  const { addXP, toast } = useApp();
-  const [area, setArea] = useState(null);
-  const [sub, setSub] = useState(null);
-  const [mins, setMins] = useState(30);
-
-  const ac = area ? ACCENTS[area.accent] : ACCENTS.gold;
-  const points = mins; // 1 min = 1 point
-
-  const commit = async () => {
-    addXP(points);
-    toast(`${sub.name} logged · +${points} pts`);
-    const logged = { area, sub, mins };
-    setArea(null);
-    setSub(null);
-    setMins(30);
-    try {
-      await logExercise({
-        exerciseKey: logged.sub.id || logged.sub.key || logged.sub.name,
-        exerciseName: logged.sub.name,
-        areaKey: logged.area?.id || logged.area?.key || null,
-        durationMin: logged.mins,
-        unit: "min",
-      });
-    } catch (e) {
-      /* offline: local XP already updated */
-    }
-  };
-
-  // ---------- STAGE 1: pick an area ----------
-  if (!area) {
-    return (
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
-        <ScreenHeader
-          title="Log activity"
-          subtitle="Every minute counts · 1 min = 1 point"
-        />
-
-        <DailySteps />
-
-        <Text style={styles.pickTitle}>Where did you train?</Text>
-        <View style={styles.grid}>
-          {AREAS.map((a) => {
-            const acc = ACCENTS[a.accent];
-            return (
-              <PressScale
-                key={a.id}
-                onPress={() => setArea(a)}
-                wrapStyle={styles.areaCell}
-              >
-                <View style={[styles.areaCard, { borderColor: acc.line }]}>
-                  <View
-                    style={[
-                      styles.areaIco,
-                      { backgroundColor: acc.soft, borderColor: acc.line },
-                    ]}
-                  >
-                    <SportIcon name={a.icon} size={28} color={acc.main} />
-                  </View>
-                  <Text style={styles.areaName} numberOfLines={2}>
-                    {a.name}
-                  </Text>
-                  <Text style={styles.areaCount}>
-                    {a.subs.length} activities
-                  </Text>
-                </View>
-              </PressScale>
-            );
-          })}
-        </View>
-      </ScrollView>
-    );
-  }
-
-  // ---------- STAGE 2: pick activity + duration ----------
-  return (
-    <ScrollView
-      contentContainerStyle={styles.scroll}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.head}>
-        <PressScale
-          onPress={() => {
-            setArea(null);
-            setSub(null);
-          }}
-          style={styles.back}
-        >
-          <ChevronLeft size={20} color={colors.text} />
-        </PressScale>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headTitle}>{area.name}</Text>
-          <Text style={styles.headSub}>Pick what you did, then your time</Text>
-        </View>
-      </View>
-
-      {area.subs.map((sv) => {
-        const on = sub?.id === sv.id;
-        return (
-          <PressScale
-            key={sv.id}
-            onPress={() => setSub(sv)}
-            style={{ marginBottom: 10 }}
-          >
-            <View
-              style={[
-                styles.subRow,
-                on && { borderColor: ac.line, backgroundColor: ac.soft },
-              ]}
-            >
-              <View
-                style={[
-                  styles.subIco,
-                  {
-                    borderColor: ac.line,
-                    backgroundColor: on ? ac.soft : colors.card,
-                  },
-                ]}
-              >
-                <SportIcon name={sv.icon} size={22} color={ac.main} />
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.subName}>{sv.name}</Text>
-                {sv.hint ? (
-                  <Text style={styles.subHint} numberOfLines={1}>
-                    {sv.hint}
-                  </Text>
-                ) : null}
-              </View>
-              {on ? (
-                <View style={[styles.tick, { backgroundColor: ac.main }]}>
-                  <CheckIcon size={14} color={colors.goldInk} strokeWidth={3} />
-                </View>
-              ) : (
-                <View style={[styles.ring, { borderColor: ac.line }]} />
-              )}
-            </View>
-          </PressScale>
-        );
-      })}
-
-      {sub && (
-        <View style={styles.durBlock}>
-          <Text style={styles.durLbl}>How long?</Text>
-          <View style={styles.durRow}>
-            {DURATIONS.map((d) => {
-              const on = d === mins;
-              return (
-                <PressScale
-                  key={d}
-                  onPress={() => setMins(d)}
-                  wrapStyle={styles.durCell}
-                >
-                  <View
-                    style={[
-                      styles.durChip,
-                      on && { borderColor: ac.line, backgroundColor: ac.soft },
-                    ]}
-                  >
-                    <Text style={[styles.durNum, on && { color: ac.main }]}>
-                      {d}
-                    </Text>
-                    <Text style={[styles.durUnit, on && { color: ac.main }]}>
-                      min
-                    </Text>
-                  </View>
-                </PressScale>
-              );
-            })}
-          </View>
-
-          <View style={[styles.pointsCard, { borderColor: ac.line }]}>
-            <LinearGradient
-              colors={[ac.soft, "transparent"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-            <Text style={styles.pointsLbl}>You'll earn</Text>
-            <View style={styles.pointsRow}>
-              <Text style={[styles.pointsNum, { color: ac.main }]}>
-                {points}
-              </Text>
-              <Text style={styles.pointsUnit}>points</Text>
-            </View>
-          </View>
-
-          <PressScale onPress={commit} style={{ marginTop: 14 }}>
-            <LinearGradient
-              colors={[colors.gold, colors.goldDim]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={styles.cta}
-            >
-              <Text style={styles.ctaText}>Log {sub.name}</Text>
-            </LinearGradient>
-          </PressScale>
-        </View>
-      )}
-    </ScrollView>
-  );
-}
-
-// bottom padding clears the floating tab bar (68 + 14 + spacing)
-const BOTTOM = 124;
-
-const ds = StyleSheet.create({
-  card: {
-    padding: 16,
-    borderRadius: radius.lg,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.cardLine,
-    ...shadow.card,
-  },
-  topRow: { flexDirection: "row", alignItems: "center", gap: 16 },
-  ringWrap: {
-    width: 104,
-    height: 104,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ringCenter: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ringPct: { fontFamily: disp.bold, fontSize: 22, color: colors.text },
-  ringLbl: {
-    fontFamily: body.medium,
-    fontSize: 9,
-    letterSpacing: 0.6,
-    color: colors.text3,
-    textTransform: "uppercase",
-    marginTop: 1,
-  },
-  ey: {
-    fontFamily: body.semibold,
-    fontSize: 10,
-    letterSpacing: 1.3,
-    color: colors.text3,
-    textTransform: "uppercase",
-  },
-  stepRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 6,
-    marginTop: 3,
-  },
-  stepBig: {
-    fontFamily: disp.bold,
-    fontSize: 26,
-    letterSpacing: -0.6,
-    color: colors.text,
-  },
-  stepGoal: {
-    fontFamily: body.medium,
-    fontSize: 12,
-    color: colors.text3,
-    paddingBottom: 4,
-  },
-  bars: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    gap: 5,
-    marginTop: 12,
-    height: 46,
-  },
-  barCol: { flex: 1, alignItems: "center", gap: 5 },
-  barTrack: {
-    width: "100%",
-    maxWidth: 14,
-    height: 30,
-    borderRadius: 6,
-    backgroundColor: "rgba(255,255,255,0.07)",
-    justifyContent: "flex-end",
-    overflow: "hidden",
-  },
-  barDay: { fontFamily: disp.semibold, fontSize: 9, color: colors.text3 },
-
-  strip: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 16,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: colors.cardLine,
-  },
-  stat: { flex: 1, alignItems: "center" },
-  statNum: { fontFamily: disp.bold, fontSize: 16, color: colors.text },
-  statLbl: {
-    fontFamily: body.medium,
-    fontSize: 9.5,
-    letterSpacing: 0.4,
-    color: colors.text3,
-    textTransform: "uppercase",
-    marginTop: 3,
-  },
-  divider: { width: 1, height: 26, backgroundColor: colors.cardLine },
-  flameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-});
-
 const styles = StyleSheet.create({
-  scroll: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: BOTTOM },
+  root: { flex: 1, backgroundColor: colors.appBg },
+  body: { paddingHorizontal: H_PADDING, paddingTop: 8, paddingBottom: 140 },
 
-  head: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingTop: 14,
-    paddingBottom: 18,
-  },
-  back: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.cardLine,
-  },
-  headTitle: {
-    fontFamily: disp.bold,
-    fontSize: 23,
-    letterSpacing: -0.5,
-    color: colors.text,
-  },
-  headSub: {
-    fontFamily: body.regular,
-    fontSize: 13,
-    color: colors.text2,
-    marginTop: 2,
-  },
+  dayToggle: { flexDirection: "row", backgroundColor: colors.card, borderRadius: 11, padding: 3, borderWidth: 1, borderColor: colors.cardLine },
+  dayPill: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8 },
+  dayPillOn: { backgroundColor: colors.gold },
+  dayPillText: { fontFamily: disp.semibold, fontSize: 12.5, color: colors.text2 },
+  dayPillTextOn: { color: colors.goldInk },
+  manualBoxOn: { borderColor: colors.goldLine, backgroundColor: colors.goldSoft },
+  kbDone: { alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, backgroundColor: colors.blueSoft, borderWidth: 1, borderColor: colors.blueLine },
+  kbDoneText: { fontFamily: disp.semibold, fontSize: 13, color: colors.blue2 },
 
-  pickTitle: {
-    fontFamily: disp.bold,
-    fontSize: 17,
-    letterSpacing: -0.2,
-    color: colors.text,
-    marginTop: 26,
-    marginBottom: 4,
-  },
+  sectionHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  sectionTitle: { fontFamily: disp.bold, fontSize: 16, color: colors.text },
+  addBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.goldSoft, borderWidth: 1, borderColor: colors.goldLine },
+  addLink: { fontFamily: disp.bold, fontSize: 13, color: colors.gold },
+  customRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 22 },
+  customEmpty: { fontFamily: body.regular, fontSize: 12.5, color: colors.text3, lineHeight: 18 },
+  customChip: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardLine },
+  customChipSelected: { backgroundColor: colors.blue, borderColor: colors.blue2 },
+  customChipText: { fontFamily: body.semibold, fontSize: 13, color: colors.text2, maxWidth: 160 },
+  pinDot: { fontSize: 11 },
 
-  // two-column grid. width lives on the Pressable via wrapStyle.
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 8,
-    marginHorizontal: -6,
-  },
-  areaCell: { width: "50%", padding: 6 },
-  areaCard: {
-    minHeight: 150,
-    padding: 16,
-    borderRadius: radius.md,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    ...shadow.card,
-  },
-  areaIco: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    marginBottom: 14,
-  },
-  areaName: {
-    fontFamily: disp.bold,
-    fontSize: 16,
-    letterSpacing: -0.2,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  areaCount: {
-    fontFamily: body.medium,
-    fontSize: 11.5,
-    color: colors.text3,
-    marginTop: 4,
-  },
+  areaBlock: { marginBottom: 24 },
+  areaName: { fontFamily: disp.bold, fontSize: 16, color: colors.text, marginBottom: 12 },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: GUTTER },
+  tile: { width: "100%", height: TILE_H, borderRadius: radius.md, overflow: "hidden", borderWidth: 1, borderColor: colors.cardLine, justifyContent: "flex-end" },
+  tileSelected: { borderColor: colors.gold, borderWidth: 2 },
+  tileImg: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
+  tileIconChip: { position: "absolute", top: 8, left: 8, width: 30, height: 30, borderRadius: 9, backgroundColor: "rgba(0,0,0,0.40)", alignItems: "center", justifyContent: "center" },
+  tileCheck: { position: "absolute", top: 8, right: 8, width: 24, height: 24, borderRadius: 12, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" },
+  tileName: { fontFamily: disp.semibold, fontSize: 14, lineHeight: 17, color: "#fff", paddingHorizontal: 11, paddingBottom: 11 },
 
-  subRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 13,
-    padding: 12,
-    borderRadius: radius.md,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.cardLine,
-  },
-  subIco: {
-    width: 42,
-    height: 42,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-  },
-  subName: {
-    fontFamily: disp.semibold,
-    fontSize: 15,
-    letterSpacing: -0.1,
-    color: colors.text,
-  },
-  subHint: {
-    fontFamily: body.regular,
-    fontSize: 11.5,
-    color: colors.text3,
-    marginTop: 2,
-  },
-  ring: { width: 24, height: 24, borderRadius: 99, borderWidth: 2 },
-  tick: {
-    width: 24,
-    height: 24,
-    borderRadius: 99,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  sheetBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  sheet: { backgroundColor: colors.bg1, borderTopLeftRadius: 26, borderTopRightRadius: 26, borderWidth: 1, borderColor: colors.cardLine2, paddingHorizontal: 22, paddingTop: 12, paddingBottom: 40, gap: 12 },
+  sheetHandle: { alignSelf: "center", width: 40, height: 5, borderRadius: 3, backgroundColor: colors.cardLine2, marginBottom: 8 },
+  sheetTitle: { fontFamily: disp.bold, fontSize: 22, color: colors.text, letterSpacing: -0.4 },
+  sheetSub: { fontFamily: body.regular, fontSize: 13, color: colors.text2, marginTop: -6 },
+  sheetPts: { fontFamily: disp.bold, fontSize: 15, color: colors.gold, marginTop: 2 },
+  durRow: { flexDirection: "row", flexWrap: "wrap", gap: 9, alignItems: "center", marginTop: 4 },
+  durChip: { width: 50, paddingVertical: 11, borderRadius: 12, alignItems: "center", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardLine },
+  durChipOn: { backgroundColor: colors.goldSoft, borderColor: colors.goldLine },
+  durText: { fontFamily: disp.semibold, fontSize: 13.5, color: colors.text2 },
+  durTextOn: { color: colors.gold },
+  manualBox: { minWidth: 66, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardLine },
+  manualInput: { paddingVertical: 11, paddingHorizontal: 12, fontFamily: disp.semibold, fontSize: 13.5, color: colors.text, textAlign: "center" },
+  logBtn: { height: 54, borderRadius: 16, alignItems: "center", justifyContent: "center", marginTop: 4, ...shadow.accent("rgba(216,169,74,0.7)") },
+  logBtnText: { fontFamily: disp.bold, fontSize: 15, color: colors.goldInk },
 
-  durBlock: { marginTop: 22 },
-  durLbl: {
-    fontFamily: disp.bold,
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: 12,
-  },
-  // 3-col grid: each cell 1/3 width, inner chip has its own margin for the gap.
-  durRow: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -5 },
-  durCell: { width: "33.333%", padding: 5 },
-  durChip: {
-    paddingVertical: 14,
-    borderRadius: 13,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.cardLine,
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 5,
-  },
-  durNum: { fontFamily: disp.bold, fontSize: 18, color: colors.text },
-  durUnit: { fontFamily: body.medium, fontSize: 12, color: colors.text3 },
-
-  pointsCard: {
-    marginTop: 18,
-    padding: 20,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    overflow: "hidden",
-    alignItems: "center",
-  },
-  pointsLbl: {
-    fontFamily: body.semibold,
-    fontSize: 11,
-    letterSpacing: 1,
-    color: colors.text2,
-    textTransform: "uppercase",
-  },
-  pointsRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-    marginTop: 6,
-  },
-  pointsNum: {
-    fontFamily: disp.bold,
-    fontSize: 46,
-    lineHeight: 48,
-    letterSpacing: -1.2,
-  },
-  pointsUnit: {
-    fontFamily: disp.semibold,
-    fontSize: 16,
-    color: colors.text2,
-    paddingBottom: 8,
-  },
-
-  cta: {
-    height: 54,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadow.accent("rgba(224,168,56,0.55)"),
-  },
-  ctaText: { fontFamily: disp.bold, fontSize: 16, color: colors.goldInk },
+  modalRoot: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center", paddingHorizontal: 28 },
+  modalCard: { width: "100%", backgroundColor: colors.bg1, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.cardLine2, padding: 20, gap: 12 },
+  modalTitle: { fontFamily: disp.bold, fontSize: 18, color: colors.text },
+  modalSub: { fontFamily: body.regular, fontSize: 13, color: colors.text2, marginTop: -4 },
+  modalInput: { backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.cardLine, paddingVertical: 13, paddingHorizontal: 14, fontFamily: body.medium, fontSize: 15, color: colors.text },
+  modalBtns: { flexDirection: "row", gap: 10, marginTop: 4 },
+  modalCancel: { paddingVertical: 13, borderRadius: radius.md, alignItems: "center", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardLine },
+  modalCancelText: { fontFamily: disp.semibold, fontSize: 14, color: colors.text2 },
+  modalAdd: { paddingVertical: 13, borderRadius: radius.md, alignItems: "center" },
+  modalAddText: { fontFamily: disp.bold, fontSize: 14, color: "#fff" },
+  manageRow: { paddingVertical: 15, borderTopWidth: 1, borderTopColor: colors.cardLine },
+  manageText: { fontFamily: body.semibold, fontSize: 15, color: colors.text },
+  manageCancel: { fontFamily: body.semibold, fontSize: 14, color: colors.text3 },
 });

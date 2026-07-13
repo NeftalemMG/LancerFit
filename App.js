@@ -1,4 +1,3 @@
-// ============================================================
 // LancerFit — app entry point
 //
 // Responsibilities:
@@ -11,7 +10,7 @@
 //      a flash of the system font.
 //   3. Provide the safe-area context and the app state context,
 //      then hand off to AppShell which does the actual routing.
-// ============================================================
+// 
 
 import React, { useCallback } from "react";
 import { View } from "react-native";
