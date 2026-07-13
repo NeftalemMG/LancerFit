@@ -1,4 +1,3 @@
-// ============================================================
 // TYPOGRAPHY
 // The original prototype used Inter Tight (display) + Inter (body).
 // Per the brief we swap the display face for Space Grotesk: a
@@ -9,7 +8,6 @@
 // Font family strings below must match the keys we register in
 // App.js via useFonts(). Weighted variants are separate files in
 // React Native, so we map weight -> explicit family name.
-// ============================================================
 
 // Display = Space Grotesk
 export const disp = {
