@@ -1,13 +1,17 @@
-// src/components/stats/RangeSelector.js
+// Day / Week / Month / Year range switch. Roomier than before: taller segments,
+// full word labels, clear selected pill. Controlled by the parent.
+
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { PressScale } from "../ui";
 import { colors, radius } from "../../theme/tokens";
-import { body } from "../../theme/typography";
+import { disp } from "../../theme/typography";
 
 const RANGES = [
-  { key: "day", label: "D" }, { key: "week", label: "W" },
-  { key: "month", label: "M" }, { key: "year", label: "Y" },
+  { key: "day", label: "Day" },
+  { key: "week", label: "Week" },
+  { key: "month", label: "Month" },
+  { key: "year", label: "Year" },
 ];
 
 export default function RangeSelector({ value, onChange }) {
@@ -28,10 +32,18 @@ export default function RangeSelector({ value, onChange }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flexDirection: "row", backgroundColor: colors.card, borderRadius: radius.sm, padding: 3, borderWidth: 1, borderColor: colors.cardLine },
+  wrap: {
+    flexDirection: "row",
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    padding: 5,
+    borderWidth: 1,
+    borderColor: colors.cardLine,
+    gap: 4,
+  },
   segWrap: { flex: 1 },
-  seg: { paddingVertical: 7, borderRadius: radius.sm - 3, alignItems: "center" },
-  segActive: { backgroundColor: colors.blue },
-  segText: { fontFamily: body.semibold, fontSize: 13, color: colors.text2 },
-  segTextActive: { color: colors.white },
+  seg: { paddingVertical: 11, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
+  segActive: { backgroundColor: colors.blue, ...(colors.blueLine ? {} : {}) },
+  segText: { fontFamily: disp.semibold, fontSize: 14, color: colors.text2 },
+  segTextActive: { color: "#fff" },
 });

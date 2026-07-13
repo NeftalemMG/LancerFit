@@ -1,11 +1,9 @@
-import React from 'react';
-import Svg, { Path, Rect, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
-
-// ============================================================
 // KNIGHT AVATARS — six helmet crests on a shield field.
 // Ported path-for-path from the prototype's avatarSVG().
 // `plume` tints the shield outline + crest feather (faculty colour).
-// ============================================================
+
+import React from 'react';
+import Svg, { Path, Rect, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 const N1 = '#0E2A4C';
 const N2 = '#15406E';
