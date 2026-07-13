@@ -9,9 +9,8 @@ import AuthHeader from "../components/auth/AuthHeader";
 import AuthField from "../components/auth/AuthField";
 import { loginUser } from "../services/authApi";
 import { validateSignIn } from "../utils/authValidation";
-import { useAuth } from "../context/AuthContext"; // 🟢 1. Import your auth hook
+import { useAuth } from "../context/AuthContext";
 
-// 🟢 2. Removed legacy prop callbacks. React Navigation passes `navigation` directly.
 export default function SignInScreen({ navigation }) {
   const { login } = useAuth(); 
   const [email, setEmail] = useState("");
