@@ -1,82 +1,47 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, StatusBar } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Rect } from 'react-native-svg';
-import { colors } from '../theme/tokens';
-import { disp } from '../theme/typography';
-import { useApp } from '../context/AppContext';
+import React from "react";
+import { View, StyleSheet, StatusBar } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 
-import OnboardingScreen from '../screens/OnboardingScreen';
-import HomeScreen from '../screens/HomeScreen';
-import ChallengesScreen from '../screens/ChallengesScreen';
-import LeaderboardScreen from '../screens/LeaderboardScreen';
-import BadgesScreen from '../screens/BadgesScreen';
-import ProfileScreen from '../screens/ProfileScreen';
-import LogScreen from '../screens/LogScreen';
+import { colors } from "../theme/tokens";
+import { useAuth } from "../context/AuthContext";
 
-import TabBar from './TabBar';
-import { Toast, Sheet } from './Overlays';
+import AuthNavigator from "../navigation/AuthNavigator";
+import AppNavigator from "../navigation/AppNavigator";
+
+import { Toast, Sheet } from "./Overlays";
+
+const NavigationNavTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: "transparent",
+  },
+};
 
 export default function AppShell() {
-  const { addXP, toast, openSheet, closeSheet, updatePlayer } = useApp();
-  const [screen, setScreen] = useState('onboard');
-  const [tabbarVisible, setTabbarVisible] = useState(false);
+  const { isAuthenticated, isLoading } = useAuth();
 
-  // Onboarding -> Home, reveal tab bar.
-  const enterApp = (name) => {
-    setScreen('home');
-    setTabbarVisible(true);
-    setTimeout(() => toast(`Welcome to LancerFit, ${name}`), 520);
-  };
-
-  const navigate = (key) => setScreen(key);
-
-  const openLog = () => setScreen('log');
-
-  const renderScreen = () => {
-    switch (screen) {
-      case 'onboard':
-        return <OnboardingScreen onEnter={enterApp} />;
-      case 'home':
-        return <HomeScreen goToQuests={() => navigate('quests')} />;
-      case 'quests':
-        return <ChallengesScreen />;
-      case 'log':
-        return <LogScreen />;
-      case 'board':
-        return <LeaderboardScreen />;
-      case 'badges':
-        return <BadgesScreen goToProfile={() => navigate('profile')} />;
-      case 'profile':
-        return (
-          <ProfileScreen
-            goToBadges={() => navigate('badges')}
-            goToOnboarding={() => { setScreen('onboard'); setTabbarVisible(false); }}
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
-  // The active key used to highlight tabs (badges maps to profile group).
-  const activeTab = screen === 'badges' ? 'profile' : screen;
+  // Handle loading state up top to prevent interface flashing
+  if (isLoading) return null;
 
   return (
-    <View style={styles.phone}>
+    <View style={styles.root}>
       <LinearGradient
         colors={[colors.bg1, colors.bg0, colors.bg0]}
         locations={[0, 0.62, 1]}
         style={StyleSheet.absoluteFill}
       />
+
       <StatusBar barStyle="light-content" />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* {screen !== 'onboard' && <StatusBarRow />} */}
-        <View style={{ flex: 1 }}>{renderScreen()}</View>
+
+      <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
+        <NavigationContainer theme={NavigationNavTheme}>
+          {isAuthenticated ? <AppNavigator /> : <AuthNavigator />}
+        </NavigationContainer>
       </SafeAreaView>
 
-      {tabbarVisible && <TabBar active={activeTab} onNavigate={navigate} onLog={openLog} />}
       <Toast />
       <Sheet />
     </View>
@@ -84,8 +49,5 @@ export default function AppShell() {
 }
 
 const styles = StyleSheet.create({
-  phone: { flex: 1, backgroundColor: colors.appBg },
-  statusbar: { height: 36, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: 30, paddingBottom: 7 },
-  clock: { fontFamily: disp.semibold, fontSize: 14, color: colors.text },
-  sig: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  root: { flex: 1, backgroundColor: colors.appBg },
 });

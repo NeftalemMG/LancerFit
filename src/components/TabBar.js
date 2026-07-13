@@ -27,15 +27,38 @@ function Tab({ tab, active, onPress }) {
   );
 }
 
-export default function TabBar({ active, onNavigate, onLog }) {
-  const logActive = active === 'log';
+
+export default function TabBar({ state, navigation }) {
+  // Derive which screen key is currently selected in history
+  const activeRouteName = state.routes[state.index].name;
+  const logActive = activeRouteName === 'log';
+
+  // Navigation action abstraction mapping
+  const handlePress = (routeName) => {
+    const event = navigation.emit({
+      type: 'tabPress',
+      target: state.routes.find(r => r.name === routeName)?.key,
+      canPreventDefault: true,
+    });
+
+    if (!event.defaultPrevented) {
+      navigation.navigate(routeName);
+    }
+  };
+
   return (
     <View style={styles.bar}>
       {TABS.map((t) => (
-        <Tab key={t.key} tab={t} active={active === t.key} onPress={() => onNavigate(t.key)} />
+        <Tab 
+          key={t.key} 
+          tab={t} 
+          active={activeRouteName === t.key} 
+          onPress={() => handlePress(t.key)} 
+        />
       ))}
 
-      <PressScale onPress={onLog} style={styles.logWrap} scaleTo={0.94}>
+      {/* Center Log/FAB Button */}
+      <PressScale onPress={() => handlePress('log')} style={styles.logWrap} scaleTo={0.94}>
         <LinearGradient
           colors={logActive ? [colors.gold, colors.gold] : [colors.gold, colors.goldDim]}
           start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
@@ -46,7 +69,12 @@ export default function TabBar({ active, onNavigate, onLog }) {
       </PressScale>
 
       {TABS_RIGHT.map((t) => (
-        <Tab key={t.key} tab={t} active={active === t.key} onPress={() => onNavigate(t.key)} />
+        <Tab 
+          key={t.key} 
+          tab={t} 
+          active={activeRouteName === t.key} 
+          onPress={() => handlePress(t.key)} 
+        />
       ))}
     </View>
   );

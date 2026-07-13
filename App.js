@@ -13,11 +13,11 @@
 //      then hand off to AppShell which does the actual routing.
 // ============================================================
 
-import React, { useCallback } from 'react';
-import { View } from 'react-native';
-import * as SplashScreen from 'expo-splash-screen';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
+import React, { useCallback } from "react";
+import { View } from "react-native";
+import * as SplashScreen from "expo-splash-screen";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 
 import {
   useFonts,
@@ -25,16 +25,17 @@ import {
   SpaceGrotesk_500Medium,
   SpaceGrotesk_600SemiBold,
   SpaceGrotesk_700Bold,
-} from '@expo-google-fonts/space-grotesk';
+} from "@expo-google-fonts/space-grotesk";
 import {
   Inter_400Regular,
   Inter_500Medium,
   Inter_600SemiBold,
-} from '@expo-google-fonts/inter';
+} from "@expo-google-fonts/inter";
 
-import { AppProvider } from './src/context/AppContext';
-import AppShell from './src/components/AppShell';
-import { colors } from './src/theme/tokens';
+import { AppProvider } from "./src/context/AppContext";
+import { AuthProvider } from "./src/context/AuthContext";
+import AppShell from "./src/components/AppShell";
+import { colors } from "./src/theme/tokens";
 
 // Keep the native splash visible while we load fonts.
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -64,10 +65,14 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <View style={{ flex: 1, backgroundColor: colors.appBg }} onLayout={onLayoutRootView}>
-        <StatusBar style="light" />
+      <View
+        style={{ flex: 1, backgroundColor: colors.appBg }}
+        onLayout={onLayoutRootView}
+      >
         <AppProvider>
-          <AppShell />
+          <AuthProvider>
+            <AppShell />
+          </AuthProvider>
         </AppProvider>
       </View>
     </SafeAreaProvider>
