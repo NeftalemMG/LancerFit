@@ -61,7 +61,7 @@ export default function SignUpScreen({ onSignUpSuccess, navigation }) {
       onSignUpSuccess?.(response);
     } catch (error) {
       if (error?.status === 409) {
-        setSubmitError("That email is already registered.");
+        setSubmitError("An account with this email already exists.");
       } else if (
         error?.status === 400 &&
         Array.isArray(error.errors) &&
