@@ -1,14 +1,11 @@
-// AppContext — single source of truth for player progress, quests, and
-// challenge membership. The XP / check-in / quest / toast / sheet logic is
-// unchanged. What's new: challenges now load LIVE from the backend (with the
-// mock CHALLENGES kept as an offline fallback), joining calls the API, and a
-// realtime listener injects newly-published challenges instantly.
-
-
 import React, { createContext, useContext, useRef, useState, useCallback, useEffect } from 'react';
 import { Animated, Easing } from 'react-native';
 import { initialState, initialQuests, CHALLENGES } from '../data/appData';
-import { fetchActiveChallenges, joinChallenge as apiJoinChallenge } from '../services/challengeApi';
+import {
+  fetchActiveChallenges,
+  fetchMyChallenges,
+  joinChallenge as apiJoinChallenge,
+} from '../services/challengeApi';
 import { fetchMe } from '../services/userApi';
 import { useRealtime } from '../services/realtime';
 import { useAuth } from './AuthContext';
@@ -18,7 +15,6 @@ const AppContext = createContext(null);
 export const useApp = () => useContext(AppContext);
 
 // Map a backend-serialized challenge to the shape the app's UI expects.
-// The app screens read: id, type, title, sub, xp, joined, img, desc, days, unit.
 function toAppChallenge(c) {
   return {
     id: c.id,
@@ -32,24 +28,33 @@ function toAppChallenge(c) {
     days: c.endDate ? Math.max(1, Math.ceil((new Date(c.endDate) - new Date(c.startDate)) / 86400000)) : 7,
     unit: c.unit,
     goal: c.goal,
+    pointsPerUnit: c.pointsPerUnit ?? 0,
     _live: true,
   };
+}
+
+// Map a participant "myStatus" from /challenge/me into the sheet's status vocab.
+// backend statuses: pending (registered, no result) / approved / rejected.
+// We add a client-only "submitted" once the user has sent a result but it's
+// still pending review (myStatus stays "pending" but myPointsSubmitted > 0).
+function statusFromParticipation(p) {
+  if (p.myStatus === 'approved') return 'approved';
+  if (p.myStatus === 'rejected') return 'rejected';
+  if (p.myStatus === 'pending' && (p.myPointsSubmitted ?? 0) > 0) return 'submitted';
+  return 'pending'; // joined, no result yet
 }
 
 export function AppProvider({ children }) {
   const { isAuthenticated, user: authUser } = useAuth();
   const [player, setPlayer] = useState({ ...initialState });
   const [quests, setQuests] = useState(() => initialQuests.map((q) => ({ ...q })));
-  // Seed from mocks so the UI is never empty; live data replaces it on load.
   const [challenges, setChallenges] = useState(() => CHALLENGES.map((c) => ({ ...c })));
   const [joinedChals, setJoinedChals] = useState({});
-  const [levelUp, setLevelUp] = useState(null); // {level, facultyKey} when a level-up should celebrate
+  const [challengeStatus, setChallengeStatus] = useState({}); // { [id]: 'pending'|'submitted'|'approved'|'rejected' }
+  const [levelUp, setLevelUp] = useState(null);
 
-  // ---- Live user profile from /user/me (name, faculty, flag, xp, level, streak) ----
-  // Overlays real backend data onto `player` so every screen that reads player.*
-  // shows the signed-in user. Falls back to auth payload, then mock.
+  // ---- Live user profile from /user/me ----
   const refreshMe = useCallback(async () => {
-    // Seed immediately from the auth payload so the UI isn't stale on first paint.
     if (authUser) {
       setPlayer((p) => ({
         ...p,
@@ -63,8 +68,6 @@ export function AppProvider({ children }) {
     try {
       const me = await fetchMe();
       setPlayer((p) => {
-        // Detect a level-up: only fire the celebration when we had a real
-        // previous level and the new one is higher (not first hydration).
         if (p.level != null && me.level != null && me.level > p.level && p._hydrated) {
           setLevelUp({ level: me.level, facultyKey: FACULTY_KEY_BY_VALUE[me.faculty] || p.facultyKey });
         }
@@ -86,7 +89,7 @@ export function AppProvider({ children }) {
         };
       });
     } catch {
-      // offline / not signed in yet: keep whatever we have
+      // offline / not signed in yet
     }
   }, [authUser]);
 
@@ -100,13 +103,32 @@ export function AppProvider({ children }) {
         setChallenges(live.map(toAppChallenge));
       }
     } catch {
-      // offline / backend down: keep the mock challenges already in state
+      // offline: keep mocks
     }
   }, []);
 
-  useEffect(() => { loadChallenges(); }, [loadChallenges, isAuthenticated]);
+  // ---- Load which challenges the user has joined + their status ----
+  const loadMyChallenges = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const mine = await fetchMyChallenges();
+      const joinedMap = {};
+      const statusMap = {};
+      (mine || []).forEach((p) => {
+        joinedMap[p.id] = true;
+        statusMap[p.id] = statusFromParticipation(p);
+      });
+      setJoinedChals(joinedMap);
+      setChallengeStatus(statusMap);
+    } catch {
+      // offline: leave as-is
+    }
+  }, [isAuthenticated]);
 
-  // ---- Realtime: admin publishes/deletes a challenge -> reflect instantly ----
+  useEffect(() => { loadChallenges(); }, [loadChallenges, isAuthenticated]);
+  useEffect(() => { loadMyChallenges(); }, [loadMyChallenges]);
+
+  // ---- Realtime ----
   useRealtime('challenge:created', useCallback((payload) => {
     setChallenges((cs) => {
       if (cs.some((c) => String(c.id) === String(payload.id))) return cs;
@@ -115,13 +137,29 @@ export function AppProvider({ children }) {
     toast(`New challenge: ${payload.title}`);
   }, []));
 
-  // When the user logs any activity, their streak / XP / level may change — pull
-  // the fresh profile so the Home header updates live.
-  useRealtime('exercise:logged', useCallback(() => { refreshMe(); }, [refreshMe]));
-
   useRealtime('challenge:deleted', useCallback((payload) => {
     setChallenges((cs) => cs.filter((c) => String(c.id) !== String(payload.challengeId)));
   }, []));
+
+  // Live "N Lancers joined" counter across all devices.
+  useRealtime('challenge:participants', useCallback((payload) => {
+    setChallenges((cs) =>
+      cs.map((c) => (String(c.id) === String(payload.challengeId) ? { ...c, joined: payload.participants } : c)),
+    );
+  }, []));
+
+  // Admin approved/rejected this user's submission.
+  useRealtime('validation:decided', useCallback((payload) => {
+    setChallengeStatus((s) => ({ ...s, [payload.challengeId]: payload.status }));
+    if (payload.status === 'approved') {
+      toast(`Result approved · +${payload.pointsAwarded ?? 0} XP`);
+      refreshMe();
+    } else if (payload.status === 'rejected') {
+      toast('A challenge result was declined');
+    }
+  }, [refreshMe]));
+
+  useRealtime('exercise:logged', useCallback(() => { refreshMe(); }, [refreshMe]));
 
   // ---- Toast ----
   const [toastMsg, setToastMsg] = useState('');
@@ -151,7 +189,7 @@ export function AppProvider({ children }) {
   }, []);
   const closeSheet = useCallback(() => setSheet((s) => ({ ...s, open: false })), []);
 
-  // ---- XP / level logic (unchanged) ----
+  // ---- XP / level logic ----
   const addXP = useCallback((n) => {
     setPlayer((p) => {
       let xp = p.xp + n;
@@ -159,63 +197,46 @@ export function AppProvider({ children }) {
       let level = p.level;
       let xpMax = p.xpMax;
       let leveledUp = false;
-      if (xp >= xpMax) {
-        xp -= xpMax;
-        level += 1;
-        xpMax = 2200;
-        leveledUp = true;
-      }
-      if (leveledUp) {
-        setTimeout(() => toast('Level up — you reached Lancer Level ' + level), 520);
-      }
+      if (xp >= xpMax) { xp -= xpMax; level += 1; xpMax = 2200; leveledUp = true; }
+      if (leveledUp) setTimeout(() => toast('Level up — you reached Lancer Level ' + level), 520);
       return { ...p, xp, lifetime, level, xpMax };
     });
   }, [toast]);
 
-  // ---- Check-in (unchanged) ----
+  // ---- Check-in ----
   const checkIn = useCallback(() => {
-    if (player.checkedIn) {
-      toast('Already checked in today');
-      return;
-    }
+    if (player.checkedIn) { toast('Already checked in today'); return; }
     setPlayer((p) => ({ ...p, checkedIn: true, streak: p.streak + 1, workouts: p.workouts + 1 }));
     addXP(75);
     setTimeout(() => {
-      setPlayer((p) => {
-        toast('Gym visit confirmed · +75 XP · ' + p.streak + '-day streak');
-        return p;
-      });
+      setPlayer((p) => { toast('Gym visit confirmed · +75 XP · ' + p.streak + '-day streak'); return p; });
     }, 50);
   }, [player.checkedIn, addXP, toast]);
 
-  // ---- Quest interactions (unchanged) ----
+  // ---- Quest interactions ----
   const bumpQuest = useCallback((id) => {
-    setQuests((qs) =>
-      qs.map((q) => {
-        if (q.id !== id) return q;
-        if (q.claimed) { toast('Already claimed'); return q; }
-        if (q.cur < q.max) {
-          const cur = q.cur + 1;
-          if (cur >= q.max) toast(`${q.title} ready to claim`);
-          return { ...q, cur };
-        }
-        return q;
-      })
-    );
+    setQuests((qs) => qs.map((q) => {
+      if (q.id !== id) return q;
+      if (q.claimed) { toast('Already claimed'); return q; }
+      if (q.cur < q.max) {
+        const cur = q.cur + 1;
+        if (cur >= q.max) toast(`${q.title} ready to claim`);
+        return { ...q, cur };
+      }
+      return q;
+    }));
   }, [toast]);
 
   const claimQuest = useCallback((id) => {
-    setQuests((qs) =>
-      qs.map((q) => {
-        if (q.id !== id || q.claimed) return q;
-        addXP(q.xp);
-        toast(`Quest cleared · +${q.xp} XP`);
-        return { ...q, claimed: true };
-      })
-    );
+    setQuests((qs) => qs.map((q) => {
+      if (q.id !== id || q.claimed) return q;
+      addXP(q.xp);
+      toast(`Quest cleared · +${q.xp} XP`);
+      return { ...q, claimed: true };
+    }));
   }, [addXP, toast]);
 
-  // ---- Featured Tower Challenge join (unchanged) ----
+  // ---- Featured Tower Challenge join (mock, unchanged) ----
   const joinTower = useCallback(() => {
     if (player.joinedTower) { toast("You're already in the climb"); return; }
     setPlayer((p) => ({ ...p, joinedTower: true }));
@@ -226,33 +247,42 @@ export function AppProvider({ children }) {
     toast('Tower Challenge joined');
   }, [player.joinedTower, toast]);
 
-  // ---- Challenge join — now calls the backend for live challenges ----
+  // ---- Challenge join — calls the backend for live challenges ----
   const joinChallenge = useCallback(async (c) => {
     if (joinedChals[c.id]) { closeSheet(); return; }
-    // Optimistic UI update.
+    // Optimistic.
     setJoinedChals((j) => ({ ...j, [c.id]: true }));
+    setChallengeStatus((s) => ({ ...s, [c.id]: 'pending' }));
     setChallenges((cs) => cs.map((x) => (x.id === c.id ? { ...x, joined: (x.joined || 0) + 1 } : x)));
-    closeSheet();
-    toast(`Joined ${c.title} · ${c.type}`);
+    toast(`Joined ${c.title} · log your result when ready`);
 
-    // Persist to the backend when this is a live challenge.
     if (c._live) {
       try {
         await apiJoinChallenge(c.id);
       } catch (err) {
-        // Roll back the optimistic join on failure.
+        // Roll back on failure.
         setJoinedChals((j) => { const n = { ...j }; delete n[c.id]; return n; });
+        setChallengeStatus((s) => { const n = { ...s }; delete n[c.id]; return n; });
         toast(err?.message || 'Could not join challenge');
       }
     }
+    // NOTE: we intentionally keep the sheet open so the user immediately sees
+    // the "Log your result" CTA. The sheet re-renders from the new status.
   }, [joinedChals, closeSheet, toast]);
+
+  // Called by ChallengeResultSheet after a successful submit-points.
+  const markChallengeSubmitted = useCallback((challengeId) => {
+    setChallengeStatus((s) => ({ ...s, [challengeId]: 'submitted' }));
+  }, []);
 
   const updatePlayer = useCallback((patch) => setPlayer((p) => ({ ...p, ...patch })), []);
 
   const value = {
     player, updatePlayer,
     quests, bumpQuest, claimQuest,
-    challenges, joinedChals, joinChallenge, joinTower, reloadChallenges: loadChallenges,
+    challenges, joinedChals, challengeStatus, joinChallenge, joinTower,
+    markChallengeSubmitted,
+    reloadChallenges: loadChallenges, reloadMyChallenges: loadMyChallenges,
     refreshMe,
     levelUp, clearLevelUp: () => setLevelUp(null),
     addXP, checkIn,

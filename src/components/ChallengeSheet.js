@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, ImageBackground, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors } from "../theme/tokens";
@@ -7,21 +7,130 @@ import { useApp } from "../context/AppContext";
 import { FALLBACK } from "../data/appData";
 import { PressScale } from "./ui";
 import ChallengeLeaderboardPreview from "./ChallengeLeaderboardPreview";
+import ChallengeResultSheet from "./ChallengeResultSheet";
+import { fetchChallengeLeaderboard } from "../services/challengeApi";
+import { useRealtime } from "../services/realtime";
 
-// Single job: present one challenge and let the user join it.
+// Presents one challenge. Flow:
+//   1. Not joined  -> "Join challenge"
+//   2. Joined, no result submitted -> "Log your result" (opens ChallengeResultSheet)
+//   3. Result submitted, awaiting admin -> "Awaiting validation"
+//   4. Approved -> "Approved · on the leaderboard"
+// The leaderboard under the button is LIVE for backend challenges.
 export default function ChallengeSheet({ challenge: c, onViewLeaderboard }) {
-  const { joinedChals, joinChallenge } = useApp();
+  const { joinedChals, joinChallenge, challengeStatus, openSheet } = useApp();
   const joined = !!joinedChals[c.id];
+  const status = challengeStatus?.[c.id]; // 'pending' | 'submitted' | 'approved' | 'rejected'
+
+  const [board, setBoard] = useState(null);
+
+  // Live leaderboard for real (backend) challenges.
+  const loadBoard = React.useCallback(async () => {
+    if (!c._live) {
+      setBoard(c.leaderboard || null);
+      return;
+    }
+    try {
+      const rows = await fetchChallengeLeaderboard(c.id);
+      // Map backend {rank,user,points} into the row shape the preview expects.
+      setBoard(
+        (rows || []).map((r) => ({
+          n: r.user?.name || `${r.user?.firstName ?? ""}`.trim() || "Lancer",
+          f: "cs",
+          xp: r.points,
+          av: 0,
+          fl: r.user?.nationality || "ca",
+        })),
+      );
+    } catch {
+      setBoard([]);
+    }
+  }, [c]);
+
+  useEffect(() => {
+    loadBoard();
+  }, [loadBoard]);
+
+  // Refresh standings the moment an admin approves/rejects anyone here.
+  useRealtime(
+    "validation:decided",
+    React.useCallback(() => loadBoard(), [loadBoard]),
+  );
+
+  const openLogResult = () => {
+    openSheet(<ChallengeResultSheet challenge={c} onDone={loadBoard} />, true);
+  };
+
+  const renderCta = () => {
+    if (!joined) {
+      return (
+        <LinearGradient
+          colors={[colors.gold, colors.goldDim]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.act}
+        >
+          <Text style={styles.actText}>Join challenge</Text>
+        </LinearGradient>
+      );
+    }
+    if (status === "approved") {
+      return (
+        <View style={[styles.act, styles.actApproved]}>
+          <Text style={styles.approvedText}>Approved · on the leaderboard</Text>
+        </View>
+      );
+    }
+    if (status === "submitted" || status === "pending_review") {
+      return (
+        <View style={[styles.act, styles.actSec]}>
+          <Text style={styles.joinedText}>Awaiting validation…</Text>
+        </View>
+      );
+    }
+    if (status === "rejected") {
+      return (
+        <LinearGradient
+          colors={[colors.gold, colors.goldDim]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.act}
+        >
+          <Text style={styles.actText}>Result declined · log again</Text>
+        </LinearGradient>
+      );
+    }
+    // joined, not yet submitted
+    return (
+      <LinearGradient
+        colors={[colors.gold, colors.goldDim]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.act}
+      >
+        <Text style={styles.actText}>Log your result</Text>
+      </LinearGradient>
+    );
+  };
+
+  const onCtaPress = () => {
+    if (!joined) {
+      joinChallenge(c);
+      return;
+    }
+    if (status === "approved" || status === "submitted" || status === "pending_review") {
+      // Nothing to do — just show progress / standings.
+      return;
+    }
+    openLogResult();
+  };
 
   return (
     <View>
       <ImageBackground
         source={{ uri: c.img }}
         style={styles.photo}
-        imageStyle={{
-          resizeMode: "cover",
-          backgroundColor: FALLBACK[c.type]?.[1],
-        }}
+        imageStyle={{ resizeMode: "cover", backgroundColor: FALLBACK[c.type]?.[1] }}
       >
         <LinearGradient
           colors={["rgba(8,42,71,0.05)", "rgba(8,42,71,0.7)"]}
@@ -51,28 +160,18 @@ export default function ChallengeSheet({ challenge: c, onViewLeaderboard }) {
           </View>
         </View>
 
-        <PressScale
-          onPress={() => joinChallenge(c)}
-          wrapStyle={styles.buttonWrap}
-        >
-          {joined ? (
-            <View style={[styles.act, styles.actSec]}>
-              <Text style={styles.joinedText}>Joined — view progress</Text>
-            </View>
-          ) : (
-            <LinearGradient
-              colors={[colors.gold, colors.goldDim]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={styles.act}
-            >
-              <Text style={styles.actText}>Join challenge</Text>
-            </LinearGradient>
-          )}
+        <PressScale onPress={onCtaPress} wrapStyle={styles.buttonWrap}>
+          {renderCta()}
         </PressScale>
 
+        {joined && (status == null || status === "rejected") && (
+          <Text style={styles.helper}>
+            Did the activity in front of TLC staff? Log it to send for approval.
+          </Text>
+        )}
+
         <ChallengeLeaderboardPreview
-          entries={c.leaderboard}
+          entries={board}
           userEntry={joined ? c.userEntry : null}
           userRank={c.userRank}
           onViewAll={() => onViewLeaderboard?.(c)}
@@ -102,12 +201,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     textTransform: "uppercase",
   },
-  bodyWrap: {
-    paddingHorizontal: 26,
-    paddingTop: 18,
-    paddingBottom: 32,
-    alignItems: "center",
-  },
+  bodyWrap: { paddingHorizontal: 26, paddingTop: 18, paddingBottom: 32, alignItems: "center" },
   h3: {
     fontFamily: disp.bold,
     fontSize: 21,
@@ -157,18 +251,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cardLine,
   },
-  actText: {
-    fontFamily: disp.bold,
-    fontSize: 14,
-    color: colors.goldInk,
+  actApproved: {
+    backgroundColor: "rgba(46,160,94,0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(46,160,94,0.5)",
   },
-  buttonWrap: {
-    marginTop: 18,
-    alignSelf: "stretch",
-  },
-  joinedText: {
-    fontFamily: disp.bold,
-    fontSize: 14,
-    color: colors.text2,
+  actText: { fontFamily: disp.bold, fontSize: 14, color: colors.goldInk },
+  joinedText: { fontFamily: disp.bold, fontSize: 14, color: colors.text2 },
+  approvedText: { fontFamily: disp.bold, fontSize: 14, color: colors.green },
+  buttonWrap: { marginTop: 18, alignSelf: "stretch" },
+  helper: {
+    marginTop: 12,
+    fontFamily: body.regular,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: colors.text3,
+    textAlign: "center",
+    maxWidth: 280,
   },
 });
