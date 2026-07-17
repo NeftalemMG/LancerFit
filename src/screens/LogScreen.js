@@ -4,23 +4,38 @@
 //   • Gold back button (returns to Home) via GoldBackHeader.
 //   • Duration quick-picks + manual "any minutes" entry.
 //   • Custom "Other" activities: add / pin / delete, persisted on the backend.
-//   • Today / Yesterday only. 1 minute = 1 point. Writes a real ExerciseSession.
 
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, ScrollView, StyleSheet, Image, TextInput, Modal, Pressable, ActivityIndicator, Dimensions, Keyboard } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  Image,
+  TextInput,
+  Modal,
+  Pressable,
+  ActivityIndicator,
+  Dimensions,
+  Keyboard,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius, shadow } from "../theme/tokens";
 import { disp, body } from "../theme/typography";
 import { useApp } from "../context/AppContext";
 import { PressScale } from "../components/ui";
 import GoldBackHeader from "../components/GoldBackHeader";
+import BottomSheetModal from '../components/BottomSheetModal';
 import { SportIcon } from "../components/SportIcons";
 import { AREAS, DURATIONS } from "../data/activityData";
 import { imageForActivity } from "../data/activityImages";
 import { CheckIcon } from "../components/icons";
 import { logExercise } from "../services/statsApi";
 import {
-  fetchCustomActivities, createCustomActivity, pinCustomActivity, deleteCustomActivity,
+  fetchCustomActivities,
+  createCustomActivity,
+  pinCustomActivity,
+  deleteCustomActivity,
 } from "../services/customActivityApi";
 
 // Two equal columns with a consistent gutter.
@@ -33,8 +48,15 @@ function ActivityTile({ sub, selected, onPress }) {
   return (
     <PressScale onPress={onPress} style={{ width: COL_W }}>
       <View style={[styles.tile, selected && styles.tileSelected]}>
-        <Image source={{ uri: imageForActivity(sub) }} style={styles.tileImg} resizeMode="cover" />
-        <LinearGradient colors={["rgba(11,26,45,0.15)", "rgba(11,26,45,0.90)"]} style={StyleSheet.absoluteFill} />
+        <Image
+          source={{ uri: imageForActivity(sub) }}
+          style={styles.tileImg}
+          resizeMode="cover"
+        />
+        <LinearGradient
+          colors={["rgba(11,26,45,0.15)", "rgba(11,26,45,0.90)"]}
+          style={StyleSheet.absoluteFill}
+        />
         <View style={styles.tileIconChip}>
           <SportIcon name={sub.icon} size={15} color="#fff" />
         </View>
@@ -43,7 +65,9 @@ function ActivityTile({ sub, selected, onPress }) {
             <CheckIcon size={13} color={colors.goldInk} strokeWidth={3} />
           </View>
         )}
-        <Text style={styles.tileName} numberOfLines={2}>{sub.name}</Text>
+        <Text style={styles.tileName} numberOfLines={2}>
+          {sub.name}
+        </Text>
       </View>
     </PressScale>
   );
@@ -54,7 +78,10 @@ function CustomChip({ item, selected, onPress, onLongPress }) {
     <PressScale onPress={onPress} onLongPress={onLongPress}>
       <View style={[styles.customChip, selected && styles.customChipSelected]}>
         {item.pinned && <Text style={styles.pinDot}>📌</Text>}
-        <Text style={[styles.customChipText, selected && { color: "#fff" }]} numberOfLines={1}>
+        <Text
+          style={[styles.customChipText, selected && { color: "#fff" }]}
+          numberOfLines={1}
+        >
           {item.name}
         </Text>
       </View>
@@ -79,12 +106,19 @@ export default function LogScreen({ navigation }) {
   const [manageItem, setManageItem] = useState(null);
 
   const loadCustoms = useCallback(async () => {
-    try { setCustoms(await fetchCustomActivities()); } catch { /* offline */ }
+    try {
+      setCustoms(await fetchCustomActivities());
+    } catch {
+      /* offline */
+    }
   }, []);
-  useEffect(() => { loadCustoms(); }, [loadCustoms]);
+  useEffect(() => {
+    loadCustoms();
+  }, [loadCustoms]);
 
   const manualNum = parseInt(manual, 10);
-  const effectiveMins = Number.isFinite(manualNum) && manualNum > 0 ? manualNum : mins;
+  const effectiveMins =
+    Number.isFinite(manualNum) && manualNum > 0 ? manualNum : mins;
   const points = effectiveMins;
   const hasSelection = !!sub || !!customSel;
 
@@ -94,8 +128,16 @@ export default function LogScreen({ navigation }) {
     return d.toISOString();
   };
 
-  const pickCatalog = (a, s) => { setArea(a); setSub(s); setCustomSel(null); };
-  const pickCustom = (c) => { setCustomSel(c); setSub(null); setArea(null); };
+  const pickCatalog = (a, s) => {
+    setArea(a);
+    setSub(s);
+    setCustomSel(null);
+  };
+  const pickCustom = (c) => {
+    setCustomSel(c);
+    setSub(null);
+    setArea(null);
+  };
 
   const goBack = () => {
     if (navigation?.canGoBack?.()) navigation.goBack();
@@ -110,13 +152,23 @@ export default function LogScreen({ navigation }) {
     const key = isCustom ? customSel.key : sub.id;
     try {
       await logExercise({
-        exerciseKey: key, exerciseName: name,
+        exerciseKey: key,
+        exerciseName: name,
         areaKey: isCustom ? null : area?.id,
-        durationMin: effectiveMins, unit: "min",
-        performedAt: performedAtISO(), isCustom,
+        durationMin: effectiveMins,
+        unit: "min",
+        performedAt: performedAtISO(),
+        isCustom,
       });
-      toast(`${name} logged · +${points} pts${day === "yesterday" ? " · yesterday" : ""}`);
-      setArea(null); setSub(null); setCustomSel(null); setMins(30); setManual(""); setDay("today");
+      toast(
+        `${name} logged · +${points} pts${day === "yesterday" ? " · yesterday" : ""}`,
+      );
+      setArea(null);
+      setSub(null);
+      setCustomSel(null);
+      setMins(30);
+      setManual("");
+      setDay("today");
       loadCustoms();
       refreshMe && refreshMe();
     } catch (e) {
@@ -131,15 +183,23 @@ export default function LogScreen({ navigation }) {
     if (!name) return;
     try {
       const created = await createCustomActivity(name);
-      setNewName(""); setShowAdd(false);
+      setNewName("");
+      setShowAdd(false);
       await loadCustoms();
       pickCustom(created);
-    } catch (e) { toast(e?.message || "Couldn't add activity"); }
+    } catch (e) {
+      toast(e?.message || "Couldn't add activity");
+    }
   };
 
   const togglePin = async (item) => {
-    try { await pinCustomActivity(item.id, !item.pinned); setManageItem(null); loadCustoms(); }
-    catch (e) { toast(e?.message || "Couldn't update"); }
+    try {
+      await pinCustomActivity(item.id, !item.pinned);
+      setManageItem(null);
+      loadCustoms();
+    } catch (e) {
+      toast(e?.message || "Couldn't update");
+    }
   };
 
   const removeCustom = async (item) => {
@@ -148,22 +208,34 @@ export default function LogScreen({ navigation }) {
       setManageItem(null);
       if (customSel?.id === item.id) setCustomSel(null);
       loadCustoms();
-    } catch (e) { toast(e?.message || "Couldn't delete"); }
+    } catch (e) {
+      toast(e?.message || "Couldn't delete");
+    }
   };
 
   return (
     <View style={styles.root}>
       <GoldBackHeader
         title="Log activity"
-        subtitle="1 minute = 1 point"
         onBack={goBack}
         right={
           <View style={styles.dayToggle}>
-            {[{ k: "today", l: "Today" }, { k: "yesterday", l: "Yest." }].map((d) => {
+            {[
+              { k: "today", l: "Today" },
+              { k: "yesterday", l: "Yest." },
+            ].map((d) => {
               const on = day === d.k;
               return (
-                <Pressable key={d.k} onPress={() => setDay(d.k)} style={[styles.dayPill, on && styles.dayPillOn]}>
-                  <Text style={[styles.dayPillText, on && styles.dayPillTextOn]}>{d.l}</Text>
+                <Pressable
+                  key={d.k}
+                  onPress={() => setDay(d.k)}
+                  style={[styles.dayPill, on && styles.dayPillOn]}
+                >
+                  <Text
+                    style={[styles.dayPillText, on && styles.dayPillTextOn]}
+                  >
+                    {d.l}
+                  </Text>
                 </Pressable>
               );
             })}
@@ -180,16 +252,26 @@ export default function LogScreen({ navigation }) {
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>Your activities</Text>
           <PressScale onPress={() => setShowAdd(true)}>
-            <View style={styles.addBtn}><Text style={styles.addLink}>+ Add</Text></View>
+            <View style={styles.addBtn}>
+              <Text style={styles.addLink}>+ Add</Text>
+            </View>
           </PressScale>
         </View>
         <View style={styles.customRow}>
           {customs.length === 0 ? (
-            <Text style={styles.customEmpty}>Add your own activity (e.g. Rock Climbing) with "+ Add". Long-press to pin or delete.</Text>
+            <Text style={styles.customEmpty}>
+              Add your own activity (e.g. Rock Climbing) with "+ Add".
+              Long-press to pin or delete.
+            </Text>
           ) : (
             customs.map((c) => (
-              <CustomChip key={c.id} item={c} selected={customSel?.id === c.id}
-                onPress={() => pickCustom(c)} onLongPress={() => setManageItem(c)} />
+              <CustomChip
+                key={c.id}
+                item={c}
+                selected={customSel?.id === c.id}
+                onPress={() => pickCustom(c)}
+                onLongPress={() => setManageItem(c)}
+              />
             ))
           )}
         </View>
@@ -200,112 +282,168 @@ export default function LogScreen({ navigation }) {
             <Text style={styles.areaName}>{a.name}</Text>
             <View style={styles.grid}>
               {a.subs.map((s) => (
-                <ActivityTile key={s.id} sub={s}
+                <ActivityTile
+                  key={s.id}
+                  sub={s}
                   selected={sub?.id === s.id && area?.id === a.id}
-                  onPress={() => pickCatalog(a, s)} />
+                  onPress={() => pickCatalog(a, s)}
+                />
               ))}
             </View>
           </View>
         ))}
       </ScrollView>
 
-      {/* Half-screen sheet: opens when an activity is picked, sits ABOVE the
-          tab bar so the duration + log controls are never covered. */}
-      <Modal visible={hasSelection} transparent animationType="slide" onRequestClose={() => { setSub(null); setCustomSel(null); }}>
-        <Pressable style={styles.sheetBackdrop} onPress={() => { Keyboard.dismiss(); setSub(null); setCustomSel(null); }}>
-          <Pressable style={styles.sheet} onPress={() => Keyboard.dismiss()}>
-            <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle} numberOfLines={1}>
-              {customSel ? customSel.name : sub?.name}
-            </Text>
-            <Text style={styles.sheetSub}>{day === "yesterday" ? "Logging for yesterday" : "Logging for today"} · 1 min = 1 point</Text>
+      {/* ── Activity sheet: duration picker + log button ───────────────────── */}
+      <BottomSheetModal
+        visible={hasSelection}
+        onClose={() => {
+          setSub(null);
+          setCustomSel(null);
+        }}
+      >
+        <Text style={styles.sheetTitle} numberOfLines={1}>
+          {customSel ? customSel.name : sub?.name}
+        </Text>
+        <Text style={styles.sheetSub}>
+          {day === "yesterday" ? "Logging for yesterday" : "Logging for today"}
+        </Text>
 
-            <View style={styles.durRow}>
-              {DURATIONS.map((d) => {
-                const on = !manual && mins === d;
-                return (
-                  <PressScale key={d} onPress={() => { setMins(d); setManual(""); Keyboard.dismiss(); }}>
-                    <View style={[styles.durChip, on && styles.durChipOn]}>
-                      <Text style={[styles.durText, on && styles.durTextOn]}>{d}</Text>
-                    </View>
-                  </PressScale>
-                );
-              })}
-              <View style={[styles.manualBox, manual ? styles.manualBoxOn : null]}>
-                <TextInput
-                  value={manual}
-                  onChangeText={setManual}
-                  keyboardType="number-pad"
-                  placeholder="Min"
-                  placeholderTextColor={colors.text3}
-                  style={styles.manualInput}
-                  maxLength={4}
-                  returnKeyType="done"
-                  onSubmitEditing={() => Keyboard.dismiss()}
-                  blurOnSubmit
-                />
-              </View>
-            </View>
+        <View style={styles.durRow}>
+          {DURATIONS.map((d) => {
+            const on = !manual && mins === d;
+            return (
+              <PressScale
+                key={d}
+                onPress={() => {
+                  setMins(d);
+                  setManual("");
+                  Keyboard.dismiss();
+                }}
+              >
+                <View style={[styles.durChip, on && styles.durChipOn]}>
+                  <Text style={[styles.durText, on && styles.durTextOn]}>
+                    {d}
+                  </Text>
+                </View>
+              </PressScale>
+            );
+          })}
+          <View style={[styles.manualBox, manual ? styles.manualBoxOn : null]}>
+            <TextInput
+              value={manual}
+              onChangeText={setManual}
+              keyboardType="number-pad"
+              placeholder="Custom Mins"
+              placeholderTextColor={colors.text3}
+              style={styles.manualInput}
+              maxLength={4}
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
+              blurOnSubmit
+            />
+          </View>
+        </View>
 
-            {/* Explicit Done bar appears while typing so the numeric pad (which has
-                no return key) can always be dismissed. */}
-            {manual !== "" && (
-              <Pressable onPress={() => Keyboard.dismiss()} style={styles.kbDone}>
-                <Text style={styles.kbDoneText}>Done entering minutes</Text>
-              </Pressable>
+        {manual !== "" && (
+          <Pressable onPress={() => Keyboard.dismiss()} style={styles.kbDone}>
+            <Text style={styles.kbDoneText}>Done entering minutes</Text>
+          </Pressable>
+        )}
+
+        <Text style={styles.sheetPts}>+{points} points</Text>
+
+        <PressScale onPress={commit} disabled={submitting}>
+          <LinearGradient
+            colors={[colors.gold, colors.goldDim]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.logBtn}
+          >
+            {submitting ? (
+              <ActivityIndicator color={colors.goldInk} />
+            ) : (
+              <Text style={styles.logBtnText}>
+                Log {effectiveMins} min · +{points} pts
+              </Text>
             )}
+          </LinearGradient>
+        </PressScale>
+      </BottomSheetModal>
 
-            <Text style={styles.sheetPts}>+{points} points</Text>
-
-            <PressScale onPress={commit} disabled={submitting}>
-              <LinearGradient colors={[colors.gold, colors.goldDim]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.logBtn}>
-                {submitting ? <ActivityIndicator color={colors.goldInk} />
-                  : <Text style={styles.logBtnText}>Log {effectiveMins} min · +{points} pts</Text>}
-              </LinearGradient>
-            </PressScale>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Add modal */}
-      <Modal visible={showAdd} transparent animationType="fade" onRequestClose={() => setShowAdd(false)}>
-        <Pressable style={styles.modalRoot} onPress={() => setShowAdd(false)}>
-          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>New activity</Text>
-            <Text style={styles.modalSub}>Give it a name. You can pin or delete it later.</Text>
-            <TextInput value={newName} onChangeText={setNewName} placeholder="e.g. Rock Climbing"
-              placeholderTextColor={colors.text3} style={styles.modalInput} autoFocus returnKeyType="done" onSubmitEditing={addCustom} />
-            <View style={styles.modalBtns}>
-              <PressScale onPress={() => { setShowAdd(false); setNewName(""); }} style={{ flex: 1 }}>
-                <View style={styles.modalCancel}><Text style={styles.modalCancelText}>Cancel</Text></View>
-              </PressScale>
-              <PressScale onPress={addCustom} style={{ flex: 1 }}>
-                <LinearGradient colors={[colors.blue2, colors.blue]} style={styles.modalAdd}>
-                  <Text style={styles.modalAddText}>Add</Text>
-                </LinearGradient>
-              </PressScale>
+      {/* ── Add-activity sheet ─────────────────────────────────*/}
+      <BottomSheetModal
+        visible={showAdd}
+        onClose={() => {
+          setShowAdd(false);
+          setNewName("");
+        }}
+        maxHeightRatio={0.5}
+      >
+        <Text style={styles.modalTitle}>New activity</Text>
+        <Text style={styles.modalSub}>
+          Give it a name. You can pin or delete it later.
+        </Text>
+        <TextInput
+          value={newName}
+          onChangeText={setNewName}
+          placeholder="e.g. Rock Climbing"
+          placeholderTextColor={colors.text3}
+          style={styles.modalInput}
+          autoFocus
+          returnKeyType="done"
+          onSubmitEditing={addCustom}
+        />
+        <View style={styles.modalBtns}>
+          <PressScale
+            onPress={() => {
+              setShowAdd(false);
+              setNewName("");
+            }}
+            wrapStyle={{ flex: 1 }}
+          >
+            <View style={styles.modalCancel}>
+              <Text style={styles.modalCancelText}>Cancel</Text>
             </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+          </PressScale>
+          <PressScale onPress={addCustom} wrapStyle={{ flex: 1 }}>
+            <LinearGradient
+              colors={[colors.blue2, colors.blue]}
+              style={styles.modalAdd}
+            >
+              <Text style={styles.modalAddText}>Add</Text>
+            </LinearGradient>
+          </PressScale>
+        </View>
+      </BottomSheetModal>
 
-      {/* Manage modal */}
-      <Modal visible={!!manageItem} transparent animationType="fade" onRequestClose={() => setManageItem(null)}>
-        <Pressable style={styles.modalRoot} onPress={() => setManageItem(null)}>
-          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>{manageItem?.name}</Text>
-            <PressScale onPress={() => togglePin(manageItem)}>
-              <View style={styles.manageRow}><Text style={styles.manageText}>{manageItem?.pinned ? "📌  Unpin from top" : "📌  Pin to top"}</Text></View>
-            </PressScale>
-            <PressScale onPress={() => removeCustom(manageItem)}>
-              <View style={styles.manageRow}><Text style={[styles.manageText, { color: "#E5695B" }]}>🗑  Delete activity</Text></View>
-            </PressScale>
-            <PressScale onPress={() => setManageItem(null)}>
-              <View style={[styles.manageRow, { justifyContent: "center" }]}><Text style={styles.manageCancel}>Cancel</Text></View>
-            </PressScale>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {/* ── Manage-activity sheet: pin/delete action list ──────────────────── */}
+      <BottomSheetModal
+        visible={!!manageItem}
+        onClose={() => setManageItem(null)}
+        maxHeightRatio={0.4}
+      >
+        <Text style={styles.modalTitle}>{manageItem?.name}</Text>
+        <PressScale onPress={() => togglePin(manageItem)}>
+          <View style={styles.manageRow}>
+            <Text style={styles.manageText}>
+              {manageItem?.pinned ? "📌  Unpin from top" : "📌  Pin to top"}
+            </Text>
+          </View>
+        </PressScale>
+        <PressScale onPress={() => removeCustom(manageItem)}>
+          <View style={styles.manageRow}>
+            <Text style={[styles.manageText, { color: "#E5695B" }]}>
+              🗑 Delete activity
+            </Text>
+          </View>
+        </PressScale>
+        <PressScale onPress={() => setManageItem(null)}>
+          <View style={[styles.manageRow, { justifyContent: "center" }]}>
+            <Text style={styles.manageCancel}>Cancel</Text>
+          </View>
+        </PressScale>
+      </BottomSheetModal>
     </View>
   );
 }
@@ -314,63 +452,246 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.appBg },
   body: { paddingHorizontal: H_PADDING, paddingTop: 8, paddingBottom: 140 },
 
-  dayToggle: { flexDirection: "row", backgroundColor: colors.card, borderRadius: 11, padding: 3, borderWidth: 1, borderColor: colors.cardLine },
+  dayToggle: {
+    flexDirection: "row",
+    backgroundColor: colors.card,
+    borderRadius: 11,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: colors.cardLine,
+  },
   dayPill: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8 },
   dayPillOn: { backgroundColor: colors.gold },
-  dayPillText: { fontFamily: disp.semibold, fontSize: 12.5, color: colors.text2 },
+  dayPillText: {
+    fontFamily: disp.semibold,
+    fontSize: 12.5,
+    color: colors.text2,
+  },
   dayPillTextOn: { color: colors.goldInk },
-  manualBoxOn: { borderColor: colors.goldLine, backgroundColor: colors.goldSoft },
-  kbDone: { alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, backgroundColor: colors.blueSoft, borderWidth: 1, borderColor: colors.blueLine },
+  manualBoxOn: {
+    borderColor: colors.goldLine,
+    backgroundColor: colors.goldSoft,
+  },
+  kbDone: {
+    alignSelf: "flex-start",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: colors.blueSoft,
+    borderWidth: 1,
+    borderColor: colors.blueLine,
+  },
   kbDoneText: { fontFamily: disp.semibold, fontSize: 13, color: colors.blue2 },
 
-  sectionHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  sectionHead: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
   sectionTitle: { fontFamily: disp.bold, fontSize: 16, color: colors.text },
-  addBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.goldSoft, borderWidth: 1, borderColor: colors.goldLine },
+  addBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: colors.goldSoft,
+    borderWidth: 1,
+    borderColor: colors.goldLine,
+  },
   addLink: { fontFamily: disp.bold, fontSize: 13, color: colors.gold },
-  customRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 22 },
-  customEmpty: { fontFamily: body.regular, fontSize: 12.5, color: colors.text3, lineHeight: 18 },
-  customChip: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardLine },
-  customChipSelected: { backgroundColor: colors.blue, borderColor: colors.blue2 },
-  customChipText: { fontFamily: body.semibold, fontSize: 13, color: colors.text2, maxWidth: 160 },
+  customRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 22,
+  },
+  customEmpty: {
+    fontFamily: body.regular,
+    fontSize: 12.5,
+    color: colors.text3,
+    lineHeight: 18,
+  },
+  customChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardLine,
+  },
+  customChipSelected: {
+    backgroundColor: colors.blue,
+    borderColor: colors.blue2,
+  },
+  customChipText: {
+    fontFamily: body.semibold,
+    fontSize: 13,
+    color: colors.text2,
+    maxWidth: 160,
+  },
   pinDot: { fontSize: 11 },
 
   areaBlock: { marginBottom: 24 },
-  areaName: { fontFamily: disp.bold, fontSize: 16, color: colors.text, marginBottom: 12 },
+  areaName: {
+    fontFamily: disp.bold,
+    fontSize: 16,
+    color: colors.text,
+    marginBottom: 12,
+  },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: GUTTER },
-  tile: { width: "100%", height: TILE_H, borderRadius: radius.md, overflow: "hidden", borderWidth: 1, borderColor: colors.cardLine, justifyContent: "flex-end" },
+  tile: {
+    width: "100%",
+    height: TILE_H,
+    borderRadius: radius.md,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.cardLine,
+    justifyContent: "flex-end",
+  },
   tileSelected: { borderColor: colors.gold, borderWidth: 2 },
   tileImg: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
-  tileIconChip: { position: "absolute", top: 8, left: 8, width: 30, height: 30, borderRadius: 9, backgroundColor: "rgba(0,0,0,0.40)", alignItems: "center", justifyContent: "center" },
-  tileCheck: { position: "absolute", top: 8, right: 8, width: 24, height: 24, borderRadius: 12, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" },
-  tileName: { fontFamily: disp.semibold, fontSize: 14, lineHeight: 17, color: "#fff", paddingHorizontal: 11, paddingBottom: 11 },
-
-  sheetBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
-  sheet: { backgroundColor: colors.bg1, borderTopLeftRadius: 26, borderTopRightRadius: 26, borderWidth: 1, borderColor: colors.cardLine2, paddingHorizontal: 22, paddingTop: 12, paddingBottom: 40, gap: 12 },
-  sheetHandle: { alignSelf: "center", width: 40, height: 5, borderRadius: 3, backgroundColor: colors.cardLine2, marginBottom: 8 },
-  sheetTitle: { fontFamily: disp.bold, fontSize: 22, color: colors.text, letterSpacing: -0.4 },
-  sheetSub: { fontFamily: body.regular, fontSize: 13, color: colors.text2, marginTop: -6 },
-  sheetPts: { fontFamily: disp.bold, fontSize: 15, color: colors.gold, marginTop: 2 },
-  durRow: { flexDirection: "row", flexWrap: "wrap", gap: 9, alignItems: "center", marginTop: 4 },
-  durChip: { width: 50, paddingVertical: 11, borderRadius: 12, alignItems: "center", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardLine },
+  tileIconChip: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    backgroundColor: "rgba(0,0,0,0.40)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tileCheck: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.gold,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tileName: {
+    fontFamily: disp.semibold,
+    fontSize: 14,
+    lineHeight: 17,
+    color: "#fff",
+    paddingHorizontal: 11,
+    paddingBottom: 11,
+  },
+  sheetTitle: {
+    fontFamily: disp.bold,
+    fontSize: 22,
+    color: colors.text,
+    letterSpacing: -0.4,
+  },
+  sheetSub: {
+    fontFamily: body.regular,
+    fontSize: 13,
+    color: colors.text2,
+    marginVertical: 8,
+  },
+  sheetPts: {
+    fontFamily: disp.bold,
+    fontSize: 15,
+    color: colors.gold,
+    marginVertical: 8,
+  },
+  durRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 9,
+    alignItems: "center",
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  durChip: {
+    width: 50,
+    paddingVertical: 11,
+    borderRadius: 12,
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardLine,
+  },
   durChipOn: { backgroundColor: colors.goldSoft, borderColor: colors.goldLine },
   durText: { fontFamily: disp.semibold, fontSize: 13.5, color: colors.text2 },
   durTextOn: { color: colors.gold },
-  manualBox: { minWidth: 66, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardLine },
-  manualInput: { paddingVertical: 11, paddingHorizontal: 12, fontFamily: disp.semibold, fontSize: 13.5, color: colors.text, textAlign: "center" },
-  logBtn: { height: 54, borderRadius: 16, alignItems: "center", justifyContent: "center", marginTop: 4, ...shadow.accent("rgba(216,169,74,0.7)") },
+  manualBox: {
+    minWidth: 66,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardLine,
+  },
+  manualInput: {
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    fontFamily: disp.semibold,
+    fontSize: 13.5,
+    color: colors.text,
+    textAlign: "center",
+  },
+  logBtn: {
+    height: 54,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
+    ...shadow.accent("rgba(216,169,74,0.7)"),
+  },
   logBtnText: { fontFamily: disp.bold, fontSize: 15, color: colors.goldInk },
-
-  modalRoot: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center", paddingHorizontal: 28 },
-  modalCard: { width: "100%", backgroundColor: colors.bg1, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.cardLine2, padding: 20, gap: 12 },
   modalTitle: { fontFamily: disp.bold, fontSize: 18, color: colors.text },
-  modalSub: { fontFamily: body.regular, fontSize: 13, color: colors.text2, marginTop: -4 },
-  modalInput: { backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.cardLine, paddingVertical: 13, paddingHorizontal: 14, fontFamily: body.medium, fontSize: 15, color: colors.text },
-  modalBtns: { flexDirection: "row", gap: 10, marginTop: 4 },
-  modalCancel: { paddingVertical: 13, borderRadius: radius.md, alignItems: "center", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardLine },
-  modalCancelText: { fontFamily: disp.semibold, fontSize: 14, color: colors.text2 },
-  modalAdd: { paddingVertical: 13, borderRadius: radius.md, alignItems: "center" },
+  modalSub: {
+    fontFamily: body.regular,
+    fontSize: 13,
+    color: colors.text2,
+    marginVertical: 8,
+  },
+  modalInput: {
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.cardLine,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    fontFamily: body.medium,
+    fontSize: 15,
+    color: colors.text,
+  },
+  modalBtns: { flexDirection: "row", gap: 10, marginTop: 16 },
+  modalCancel: {
+    paddingVertical: 13,
+    borderRadius: radius.md,
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardLine,
+  },
+  modalCancelText: {
+    fontFamily: disp.semibold,
+    fontSize: 14,
+    color: colors.text2,
+  },
+  modalAdd: {
+    paddingVertical: 13,
+    borderRadius: radius.md,
+    alignItems: "center",
+  },
   modalAddText: { fontFamily: disp.bold, fontSize: 14, color: "#fff" },
-  manageRow: { paddingVertical: 15, borderTopWidth: 1, borderTopColor: colors.cardLine },
+  manageRow: {
+    paddingVertical: 15,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardLine,
+  },
   manageText: { fontFamily: body.semibold, fontSize: 15, color: colors.text },
-  manageCancel: { fontFamily: body.semibold, fontSize: 14, color: colors.text3 },
+  manageCancel: {
+    fontFamily: body.semibold,
+    fontSize: 14,
+    color: colors.text3,
+  },
 });
