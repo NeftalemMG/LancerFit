@@ -1,7 +1,14 @@
-import React from 'react';
-import { View, Text, TextInput, StyleSheet } from 'react-native';
-import { colors } from '../../theme/tokens';
-import { disp, body } from '../../theme/typography';
+import React from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  StyleSheet,
+  TouchableWithoutFeedback,
+} from "react-native";
+import { colors } from "../../theme/tokens";
+import { disp, body } from "../../theme/typography";
 
 export default function AuthField({
   label,
@@ -9,7 +16,7 @@ export default function AuthField({
   onChangeText,
   placeholder,
   inputRef,
-  autoCapitalize = 'none',
+  autoCapitalize = "none",
   textContentType,
   keyboardType,
   secureTextEntry,
@@ -17,28 +24,42 @@ export default function AuthField({
   returnKeyType,
   onSubmitEditing,
   error,
+  rightSlot,
+  preventCopyPaste = false,
 }) {
+  const focusInput = () => {
+    inputRef?.current?.focus?.();
+  };
+
   return (
     <View style={styles.block}>
       <Text style={styles.label}>{label}</Text>
-      <View style={[styles.box, error && styles.boxError]}>
-        <TextInput
-          ref={inputRef}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={colors.text3}
-          style={styles.input}
-          autoCapitalize={autoCapitalize}
-          autoCorrect={false}
-          textContentType={textContentType}
-          keyboardType={keyboardType}
-          secureTextEntry={secureTextEntry}
-          autoComplete={autoComplete}
-          returnKeyType={returnKeyType}
-          onSubmitEditing={onSubmitEditing}
-        />
-      </View>
+
+      <TouchableWithoutFeedback onPress={focusInput}>
+        <View style={[styles.box, error && styles.boxError]}>
+          <TextInput
+            ref={inputRef}
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor={colors.text3}
+            style={styles.input}
+            autoCapitalize={autoCapitalize}
+            autoCorrect={false}
+            textContentType={textContentType}
+            keyboardType={keyboardType}
+            secureTextEntry={secureTextEntry}
+            autoComplete={autoComplete}
+            returnKeyType={returnKeyType}
+            onSubmitEditing={onSubmitEditing}
+            contextMenuHidden={preventCopyPaste}
+            selectTextOnFocus={!preventCopyPaste}
+          />
+
+          {rightSlot ? <View style={styles.rightSlot}>{rightSlot}</View> : null}
+        </View>
+      </TouchableWithoutFeedback>
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
@@ -54,7 +75,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.3,
     color: colors.text3,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   box: {
     height: 54,
@@ -63,17 +84,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cardLine,
     backgroundColor: colors.card,
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   boxError: {
-    borderColor: 'rgba(224,168,56,0.75)',
+    borderColor: "rgba(224,168,56,0.75)",
   },
   input: {
+    flex: 1,
     padding: 0,
+    height: "100%",
     fontFamily: disp.semibold,
     fontSize: 16,
     color: colors.text,
     letterSpacing: -0.2,
+  },
+  rightSlot: {
+    marginLeft: 10,
   },
   error: {
     marginTop: 7,
