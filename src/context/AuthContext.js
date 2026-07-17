@@ -55,9 +55,9 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.log("Logout API error:", err);
     }
-    disconnectRealtime();
     setUser(null);
     await clearAuth();
+    disconnectRealtime();
   }, []);
 
   return (

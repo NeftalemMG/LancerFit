@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius, shadow } from "../theme/tokens";
 import { disp, body } from "../theme/typography";
-import { Card, PressScale } from "../components/ui";
+import { Card, PressScale, KeyboardScreen } from "../components/ui";
 import { ArrowRight } from "../components/icons";
 import AuthHeader from "../components/auth/AuthHeader";
 import AuthField from "../components/auth/AuthField";
@@ -12,9 +12,10 @@ import { validateSignIn } from "../utils/authValidation";
 import { useAuth } from "../context/AuthContext";
 
 export default function SignInScreen({ navigation }) {
-  const { login } = useAuth(); 
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -25,7 +26,7 @@ export default function SignInScreen({ navigation }) {
 
     // Mock login handling for local sandbox testing
     if (__DEV__ && email === "test@uwindsor.ca") {
-      login({ 
+      login({
         token: "mock-jwt-token-xyz-123",
         user: {
           id: "mock-user-id",
@@ -47,8 +48,8 @@ export default function SignInScreen({ navigation }) {
     try {
       setSubmitting(true);
       const res = await loginUser(result.values);
-      
-      login(res); 
+
+      login(res);
     } catch (error) {
       if (error?.status === 401) {
         setSubmitError("Invalid email or password.");
@@ -64,13 +65,13 @@ export default function SignInScreen({ navigation }) {
     <View style={styles.root}>
       <AuthHeader
         title="Sign In"
-        subtitle="Use your University of Windsor email to continue."
+        subtitle="Welcome back. Let's get you moving."
         note="Built for the Toldo Lancer Centre experience."
       />
 
-      <ScrollView
+      <KeyboardScreen
         contentContainerStyle={styles.body}
-        showsVerticalScrollIndicator={false}
+        keyboardVerticalOffset={12}
       >
         <Card style={styles.formCard}>
           <AuthField
@@ -81,6 +82,7 @@ export default function SignInScreen({ navigation }) {
             inputRef={null}
             textContentType="emailAddress"
             keyboardType="email-address"
+            autoCapitalize="none"
             autoComplete="email"
             returnKeyType="next"
             onSubmitEditing={() => passwordRef.current?.focus()}
@@ -94,18 +96,29 @@ export default function SignInScreen({ navigation }) {
             placeholder="Your password"
             inputRef={passwordRef}
             textContentType="password"
-            secureTextEntry
+            secureTextEntry={!showPassword}
             autoComplete="password"
             returnKeyType="go"
+            preventCopyPaste
             onSubmitEditing={submit}
             error={errors.password}
+            rightSlot={
+              <PressScale onPress={() => setShowPassword((v) => !v)}>
+                <Text style={styles.toggleText}>
+                  {showPassword ? "Hide" : "Show"}
+                </Text>
+              </PressScale>
+            }
           />
 
           {submitError ? (
             <Text style={styles.submitError}>{submitError}</Text>
           ) : null}
 
-          <PressScale onPress={() => navigation.navigate("forgot")} style={styles.forgotWrap}>
+          <PressScale
+            onPress={() => navigation.navigate("forgot")}
+            style={styles.forgotWrap}
+          >
             <Text style={styles.forgotText}>Forgot Password?</Text>
           </PressScale>
 
@@ -135,7 +148,7 @@ export default function SignInScreen({ navigation }) {
             <Text style={styles.footerLink}>Sign Up</Text>
           </PressScale>
         </View>
-      </ScrollView>
+      </KeyboardScreen>
     </View>
   );
 }
@@ -143,9 +156,10 @@ export default function SignInScreen({ navigation }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.appBg },
   body: {
+    flexGrow: 1,
+    justifyContent: "center",
     paddingHorizontal: 22,
-    paddingTop: 24,
-    paddingBottom: 40,
+    paddingVertical: 24,
   },
   formCard: {
     paddingHorizontal: 16,
@@ -192,6 +206,11 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 18,
     color: colors.gold,
+  },
+  toggleText: {
+    fontFamily: disp.semibold,
+    fontSize: 12,
+    color: colors.blue,
   },
   footerRow: {
     flexDirection: "row",

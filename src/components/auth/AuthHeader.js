@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../../theme/tokens';
 import { disp, body } from '../../theme/typography';
-import { ShieldCheckIcon } from '../icons';
+
 
 export default function AuthHeader({ title, subtitle, note }) {
   const { height } = useWindowDimensions();
@@ -17,9 +17,6 @@ export default function AuthHeader({ title, subtitle, note }) {
       style={[styles.hero, { minHeight: heroHeight }]}
     >
       <View style={styles.heroInner}>
-        <View style={styles.mark}>
-          <ShieldCheckIcon size={22} color={colors.gold} strokeWidth={1.9} />
-        </View>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
         <Text style={styles.note}>{note}</Text>
@@ -39,17 +36,6 @@ const styles = StyleSheet.create({
   },
   heroInner: {
     gap: 0,
-  },
-  mark: {
-    width: 54,
-    height: 54,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-    borderRadius: 16,
-    marginBottom: 16,
   },
   title: {
     fontFamily: disp.bold,

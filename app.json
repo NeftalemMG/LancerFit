@@ -26,6 +26,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B2742"
       },
+      "softwareKeyboardLayoutMode": "resize",
       "userInterfaceStyle": "dark",
       "edgeToEdgeEnabled": true,
       "permissions": [

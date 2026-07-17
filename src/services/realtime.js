@@ -13,14 +13,23 @@ export async function connectRealtime() {
   socket = io(socketOrigin(), { auth: { token }, transports: ["websocket"] });
   return socket;
 }
+
 export function disconnectRealtime() {
   if (socket) { socket.disconnect(); socket = null; }
 }
+
 export function getSocket() { return socket; }
+
 export function useRealtime(event, handler) {
   useEffect(() => {
-    if (!socket) return undefined;
-    socket.on(event, handler);
-    return () => socket.off(event, handler);
+    const currentSocket = socket;
+
+    if (!currentSocket) return undefined;
+
+    currentSocket.on(event, handler);
+
+    return () => {
+      currentSocket.off(event, handler);
+    };
   }, [event, handler]);
 }
