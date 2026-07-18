@@ -1,4 +1,4 @@
-// The home page. Now fully dynamic:
+// The home page.
 //   • Greeting + first name + faculty avatar + nationality flag come from the
 //     signed-in user (via AppContext.player, hydrated from /user/me).
 //   • Lancer level, XP progress, and streak are live from the backend.
@@ -62,7 +62,7 @@ function QuestRow({ q, onPress, onClaim }) {
 
 export default function HomeScreen({ navigation }) {
   const { player, quests, bumpQuest, claimQuest, checkIn, refreshMe } = useApp();
-  const { steps, available: stepsAvailable } = usePedometer();
+  const { steps, weekVals, weekSteps, todayIndex, available: stepsAvailable } = usePedometer();
   const { nearGym, distanceLabel } = useGymProximity();
   const [checking, setChecking] = React.useState(false);
 
@@ -180,7 +180,14 @@ export default function HomeScreen({ navigation }) {
 
       {/* Daily steps — moved here from the Log screen */}
       <SectionRow title="Activity" />
-      <DailyStepsCard streak={player.streak ?? 0} steps={stepsAvailable ? steps : undefined} />
+      <DailyStepsCard
+        streak={player.streak ?? 0}
+        steps={stepsAvailable ? steps : 0}
+        weekVals={weekVals}
+        weekSteps={weekSteps}
+        todayIndex={todayIndex}
+        available={stepsAvailable}
+      />
     </ScrollView>
   );
 }
