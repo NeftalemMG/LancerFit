@@ -13,7 +13,7 @@ import { disp, body } from "../theme/typography";
 import { useApp } from "../context/AppContext";
 import { FACULTIES, FALLBACK, PH } from "../data/appData";
 import KnightAvatar from "../components/KnightAvatar";
-import { QuestGlyph, questIconColor } from "../components/Glyphs";
+import { QuestGlyph } from "../components/Glyphs";
 import {
   Card,
   PressScale,
@@ -138,45 +138,8 @@ function ChallengeCard({ c, onPress }) {
   );
 }
 
-function DailyQuestRow({ q, onPress, onClaim }) {
-  const done = q.cur >= q.max;
-  return (
-    <PressScale onPress={onPress} style={{ marginBottom: 10 }}>
-      <Card style={styles.quest}>
-        <View style={[styles.qicon, q.gold ? styles.qiconGold : null]}>
-          <QuestGlyph name={q.icon} color={questIconColor[q.icon] || colors.gold} size={22} />
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.qTitle}>{q.title}</Text>
-          <Text style={styles.qSub}>{q.sub}</Text>
-          <View style={{ marginTop: 9 }}>
-            <ProgressBar pct={(q.cur / q.max) * 100} height={5} fillColor={done ? colors.green : colors.blue2} />
-          </View>
-        </View>
-        {done && !q.claimed ? (
-          <PressScale onPress={onClaim}>
-            <LinearGradient
-              colors={[colors.gold, colors.goldDim]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={styles.claim}
-            >
-              <Text style={styles.claimText}>Claim +{q.xp}</Text>
-            </LinearGradient>
-          </PressScale>
-        ) : (
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={styles.xpTag}>+{q.xp} XP</Text>
-            <Text style={styles.xpTagSub}>{q.claimed ? "Claimed" : `${q.cur}/${q.max}`}</Text>
-          </View>
-        )}
-      </Card>
-    </PressScale>
-  );
-}
-
 export default function ChallengesScreen() {
-  const { challenges, quests, bumpQuest, claimQuest, openSheet, closeSheet, joinedChals } = useApp();
+  const { challenges, openSheet, closeSheet, joinedChals } = useApp();
   const navigation = useNavigation();
 
   const openChallenge = (c) => {
@@ -218,10 +181,7 @@ export default function ChallengesScreen() {
         <ChallengeCard key={c.id} c={c} onPress={() => openChallenge(c)} />
       ))}
 
-      <SectionRow title="Daily quests" />
-      {quests.map((q) => (
-        <DailyQuestRow key={q.id} q={q} onPress={() => bumpQuest(q.id)} onClaim={() => claimQuest(q.id)} />
-      ))}
+
     </ScrollView>
   );
 }
