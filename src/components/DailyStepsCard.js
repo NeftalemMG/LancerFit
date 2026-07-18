@@ -1,10 +1,4 @@
-// The daily-steps panel (ring + weekly bars + stat strip), extracted from the
-// Log screen so it can live on the HOME page. Accepts real values; falls back to
-// sensible defaults if step data isn't wired to a pedometer yet.
-//
-// NOTE: real device step counts require expo-sensors Pedometer + permissions.
-// Until that's wired, pass steps in as a prop (or leave the default). The layout
-// and stat math are unchanged from the original Log-screen version.
+// The daily-steps panel (ring + weekly bars + stat strip) for the HOME page.
 
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
@@ -16,18 +10,21 @@ import { FlameIcon } from "./icons";
 const WEEK_DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
 export default function DailyStepsCard({
-  steps = 6320,
+  steps = 0,
   goal = 10000,
-  weekVals = [0.7, 0.45, 0.95, 0, 0.8, 0.55, 0],
-  todayIndex = 4,
+  weekVals = [0, 0, 0, 0, 0, 0, 0],
+  weekSteps = null,
+  todayIndex = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1,
   streak = 0,
+  available = true,
 }) {
-  const pct = Math.min(1, steps / goal);
+  const safeSteps = Number.isFinite(steps) ? steps : 0;
+  const pct = Math.min(1, safeSteps / goal);
   const R = 40;
   const C = 2 * Math.PI * R;
-  const km = (steps * 0.000762).toFixed(1);
-  const kcal = Math.round(steps * 0.045);
-  const activeMin = Math.round(steps / 110);
+  const km = (safeSteps * 0.000762).toFixed(1);
+  const kcal = Math.round(safeSteps * 0.045);
+  const activeMin = Math.round(safeSteps / 110);
 
   return (
     <View style={ds.card}>
@@ -57,16 +54,29 @@ export default function DailyStepsCard({
         <View style={{ flex: 1 }}>
           <Text style={ds.ey}>Daily steps</Text>
           <View style={ds.stepRow}>
-            <Text style={ds.stepBig}>{steps.toLocaleString("en-US")}</Text>
+            <Text style={ds.stepBig}>{safeSteps.toLocaleString("en-US")}</Text>
             <Text style={ds.stepGoal}>/ {goal.toLocaleString("en-US")}</Text>
           </View>
           <View style={ds.bars}>
             {WEEK_DAYS.map((d, i) => {
               const today = i === todayIndex;
+              const future = i > todayIndex;
+              const frac = weekVals[i] || 0;
               return (
                 <View key={i} style={ds.barCol}>
                   <View style={ds.barTrack}>
-                    <View style={{ height: `${Math.max(10, (weekVals[i] || 0) * 100)}%`, width: "100%", borderRadius: 6, backgroundColor: today ? colors.gold : colors.blueLine }} />
+                    <View
+                      style={{
+                        height: `${frac > 0 ? Math.max(10, frac * 100) : 4}%`,
+                        width: "100%",
+                        borderRadius: 6,
+                        backgroundColor: future
+                          ? "rgba(255,255,255,0.06)"
+                          : today
+                            ? colors.gold
+                            : colors.blueLine,
+                      }}
+                    />
                   </View>
                   <Text style={[ds.barDay, today && { color: colors.gold }]}>{d}</Text>
                 </View>
@@ -75,6 +85,12 @@ export default function DailyStepsCard({
           </View>
         </View>
       </View>
+
+      {!available && (
+        <Text style={ds.unavailable}>
+          Step tracking needs motion permission. Enable it in Settings to see live steps.
+        </Text>
+      )}
 
       <View style={ds.strip}>
         <View style={ds.stat}>
@@ -119,6 +135,7 @@ const ds = StyleSheet.create({
   barCol: { flex: 1, alignItems: "center", gap: 5 },
   barTrack: { width: "100%", maxWidth: 12, flex: 1, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 6, justifyContent: "flex-end", overflow: "hidden" },
   barDay: { fontFamily: body.semibold, fontSize: 9, color: colors.text3 },
+  unavailable: { fontFamily: body.regular, fontSize: 11.5, lineHeight: 16, color: colors.text3, marginTop: 14 },
   strip: { flexDirection: "row", alignItems: "center", marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.cardLine },
   stat: { flex: 1, alignItems: "center" },
   statNum: { fontFamily: disp.bold, fontSize: 16, color: colors.text },
