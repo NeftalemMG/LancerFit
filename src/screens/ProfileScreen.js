@@ -7,6 +7,7 @@ import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext"; 
 import { fmt } from "../data/appData";
 import FacultyAvatar from "../components/FacultyAvatar";
+import FacultyBadge from "../components/FacultyBadge";
 import { flagFor } from "../data/countries";
 import { tierName, themeForFaculty } from "../data/facultyTheme";
 import { Card, PressScale, SectionRow } from "../components/ui";
@@ -107,9 +108,7 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.name}>{player.fullName || player.name}</Text>
         <View style={styles.chips}>
           <View style={styles.chip}>
-            <View
-              style={[styles.fdot, { backgroundColor: facultyColor }]}
-            />
+            <FacultyBadge facultyKey={facultyKey} size={22} />
             <Text style={styles.chipText}>{facultyLabel}</Text>
           </View>
           <View style={[styles.chip, styles.chipLv]}>
