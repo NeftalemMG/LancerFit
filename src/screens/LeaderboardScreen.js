@@ -69,7 +69,7 @@ export default function LeaderboardScreen() {
           xp: r.xp,
           facultyKey: r.facultyKey,
           flagCode: r.nationality,
-          level: 1,
+          level: r.level || Math.floor((r.xp || 0) / 2000) + 1,
           sub: themeForFaculty(r.facultyKey).name || r.faculty || "—",
           rank: r.rank,
         })),
