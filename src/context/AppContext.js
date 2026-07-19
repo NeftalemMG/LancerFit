@@ -215,16 +215,11 @@ export function AppProvider({ children }) {
         if (cs.some((c) => String(c.id) === String(payload.id))) return cs;
         return [toAppChallenge(payload), ...cs];
       });
-<<<<<<< Updated upstream
-      toast(`New challenge: ${payload.title}`);
-    }, []),
-=======
       // Belt-and-suspenders: refetch the authoritative list so the new
       // challenge always shows live even if the payload isn't a full challenge.
       loadChallenges();
       toast(`New challenge: ${payload.title || "New challenge"}`);
     }, [loadChallenges]),
->>>>>>> Stashed changes
   );
 
   useRealtime(
