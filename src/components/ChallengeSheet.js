@@ -6,10 +6,12 @@ import { disp, body } from "../theme/typography";
 import { useApp } from "../context/AppContext";
 import { FALLBACK } from "../data/appData";
 import { PressScale } from "./ui";
-import ChallengeLeaderboardPreview from "./ChallengeLeaderboardPreview";
+import DynamicLeaderboardBoard from "./DynamicLeaderboardBoard";
 import ChallengeResultSheet from "./ChallengeResultSheet";
 import { fetchChallengeLeaderboard } from "../services/challengeApi";
 import { useRealtime } from "../services/realtime";
+import { flagFor } from "../data/countries";
+import { themeForFaculty } from "../data/facultyTheme";
 
 // Presents one challenge. Flow:
 //   1. Not joined  -> "Join challenge"
@@ -24,7 +26,12 @@ export default function ChallengeSheet({ challenge: c, onViewLeaderboard }) {
 
   const [board, setBoard] = useState(null);
 
-  // Live leaderboard for real (backend) challenges.
+  // Live leaderboard for real (backend) challenges. Maps the backend
+  // {rank,user,points} rows into the normalized shape DynamicLeaderboardBoard
+  // expects, preserving each participant's REAL faculty avatar, faculty color,
+  // level, and nationality flag (the old code flattened all of these to a single
+  // default, which is why the board showed one generic person with no avatar or
+  // flag). The faculty name renders as the small secondary line under the name.
   const loadBoard = React.useCallback(async () => {
     if (!c._live) {
       setBoard(c.leaderboard || null);
@@ -32,15 +39,21 @@ export default function ChallengeSheet({ challenge: c, onViewLeaderboard }) {
     }
     try {
       const rows = await fetchChallengeLeaderboard(c.id);
-      // Map backend {rank,user,points} into the row shape the preview expects.
       setBoard(
-        (rows || []).map((r) => ({
-          n: r.user?.name || `${r.user?.firstName ?? ""}`.trim() || "Lancer",
-          f: "cs",
-          xp: r.points,
-          av: 0,
-          fl: r.user?.nationality || "ca",
-        })),
+        (rows || []).map((r, i) => {
+          const u = r.user || {};
+          const facultyKey = u.facultyKey || "faculty9";
+          return {
+            key: u.id ?? `${i}`,
+            rank: r.rank ?? i + 1,
+            name: u.name || u.firstName || "Lancer",
+            xp: r.points ?? 0,
+            facultyKey,
+            level: u.level || 1,
+            flagCode: u.nationality || "ca",
+            sub: themeForFaculty(facultyKey).name, // faculty name as the sub-line
+          };
+        }),
       );
     } catch {
       setBoard([]);
@@ -76,8 +89,18 @@ export default function ChallengeSheet({ challenge: c, onViewLeaderboard }) {
     }
     if (status === "approved") {
       return (
-        <View style={[styles.act, styles.actApproved]}>
-          <Text style={styles.approvedText}>Approved · on the leaderboard</Text>
+        <View style={{ gap: 10 }}>
+          <View style={[styles.act, styles.actApproved]}>
+            <Text style={styles.approvedText}>Approved · on the leaderboard</Text>
+          </View>
+          <LinearGradient
+            colors={[colors.gold, colors.goldDim]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.act}
+          >
+            <Text style={styles.actText}>Log another result</Text>
+          </LinearGradient>
         </View>
       );
     }
@@ -118,10 +141,11 @@ export default function ChallengeSheet({ challenge: c, onViewLeaderboard }) {
       joinChallenge(c);
       return;
     }
-    if (status === "approved" || status === "submitted" || status === "pending_review") {
-      // Nothing to do — just show progress / standings.
+    if (status === "submitted" || status === "pending_review") {
+      // Awaiting validation — nothing to log right now.
       return;
     }
+    // approved -> log another result; rejected/joined -> log first result.
     openLogResult();
   };
 
@@ -142,7 +166,10 @@ export default function ChallengeSheet({ challenge: c, onViewLeaderboard }) {
       </ImageBackground>
 
       <View style={styles.bodyWrap}>
-        <Text style={styles.h3}>{c.title}</Text>
+        <View style={styles.titleRow}>
+          <View style={styles.titleEdge} />
+          <Text style={styles.h3}>{c.title}</Text>
+        </View>
         <Text style={styles.desc}>{c.desc}</Text>
 
         <View style={styles.stats}>
@@ -170,12 +197,16 @@ export default function ChallengeSheet({ challenge: c, onViewLeaderboard }) {
           </Text>
         )}
 
-        <ChallengeLeaderboardPreview
-          entries={board}
-          userEntry={joined ? c.userEntry : null}
-          userRank={c.userRank}
-          onViewAll={() => onViewLeaderboard?.(c)}
-        />
+        {board && board.length > 0 ? (
+          <View style={styles.boardWrap}>
+            <Text style={styles.boardTitle}>Challenge leaderboard</Text>
+            <DynamicLeaderboardBoard data={board} />
+          </View>
+        ) : (
+          <Text style={styles.boardEmpty}>
+            No approved results yet. Be the first on the board.
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -201,7 +232,9 @@ const styles = StyleSheet.create({
     color: "#fff",
     textTransform: "uppercase",
   },
-  bodyWrap: { paddingHorizontal: 26, paddingTop: 18, paddingBottom: 32, alignItems: "center" },
+  bodyWrap: { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 32, alignItems: "stretch" },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 11, alignSelf: "flex-start", maxWidth: "100%" },
+  titleEdge: { width: 4, height: 28, borderRadius: 2, backgroundColor: colors.gold },
   h3: {
     fontFamily: disp.bold,
     fontSize: 21,
@@ -268,5 +301,22 @@ const styles = StyleSheet.create({
     color: colors.text3,
     textAlign: "center",
     maxWidth: 280,
+  },
+  boardWrap: { alignSelf: "stretch", marginTop: 24 },
+  boardTitle: {
+    fontFamily: disp.semibold,
+    fontSize: 15,
+    letterSpacing: -0.2,
+    color: colors.text,
+    marginBottom: 2,
+  },
+  boardEmpty: {
+    alignSelf: "stretch",
+    marginTop: 24,
+    fontFamily: body.regular,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.text3,
+    textAlign: "center",
   },
 });
