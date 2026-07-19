@@ -8,6 +8,8 @@ import React, {
 import { logoutUser } from "../services/authApi";
 import { loadAuth, saveAuth, clearAuth } from "../services/tokenStore";
 import { connectRealtime, disconnectRealtime } from "../services/realtime";
+import { unregisterPushToken } from "../hooks/usePushNotifications";
+import { getStoredPushToken } from "../services/pushTokenStore";
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
@@ -50,6 +52,13 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
+    try {
+      // Detach this device's push token first so a shared phone stops getting
+      // this account's notifications.
+      await unregisterPushToken(getStoredPushToken());
+    } catch (err) {
+      console.log("Push unregister error:", err);
+    }
     try {
       await logoutUser();
     } catch (err) {
