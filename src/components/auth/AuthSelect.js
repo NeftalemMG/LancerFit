@@ -13,6 +13,7 @@ import { disp, body } from "../../theme/typography";
 import { Card, PressScale } from "../ui";
 import { ChevronRight } from "../icons";
 import BottomSheetModal from "../BottomSheetModal";
+import FacultyBadge from "../FacultyBadge";
 
 export default function AuthSelect({
   label,
@@ -50,6 +51,9 @@ export default function AuthSelect({
       <Text style={styles.label}>{label}</Text>
       <PressScale onPress={() => setOpen(true)}>
         <View style={[styles.box, error && styles.boxError]}>
+          {selectedOption?.key ? (
+            <FacultyBadge facultyKey={selectedOption.key} size={30} />
+          ) : null}
           <Text numberOfLines={1} style={[styles.input, !selectedOption && styles.placeholder]}>
             {selectedOption ? selectedOption.label : placeholder}
           </Text>
@@ -99,6 +103,9 @@ export default function AuthSelect({
                 style={styles.optionWrap}
               >
                 <View style={[styles.option, selected && styles.optionSelected]}>
+                  {option.key ? (
+                    <FacultyBadge facultyKey={option.key} size={34} />
+                  ) : null}
                   <View style={styles.optionTextWrap}>
                     <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]}>
                       {option.label}
