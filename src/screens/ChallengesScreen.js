@@ -11,84 +11,85 @@ import { useNavigation } from "@react-navigation/native";
 import { colors, radius, shadow } from "../theme/tokens";
 import { disp, body } from "../theme/typography";
 import { useApp } from "../context/AppContext";
-import { FACULTIES, FALLBACK, PH, fmt } from "../data/appData";
+import { FACULTIES, FALLBACK, PH } from "../data/appData";
 import KnightAvatar from "../components/KnightAvatar";
-import { QuestGlyph, questIconColor } from "../components/Glyphs";
+import FacultyAvatar from "../components/FacultyAvatar";
+import { FACULTY_KEY_BY_VALUE } from "../data/authOptions";
+import { QuestGlyph } from "../components/Glyphs";
 import {
   Card,
   PressScale,
   ProgressBar,
   SectionRow,
-  ScreenHeader,
 } from "../components/ui";
+import GlassTitle from "../components/GlassTitle";
 import { PennantIcon } from "../components/icons";
 import ChallengeSheet from "../components/ChallengeSheet";
 
-function FeaturedQuest() {
-  const { player, joinTower } = useApp();
-  const joined = player.joinedTower;
+// The featured card now surfaces the FIRST live challenge instead of a
+// hardcoded "Tower Challenge". Tapping it opens the same sheet as any other
+// challenge, so join + log-result + live standings all work here too.
+function FeaturedChallenge({ challenge, joined, joinedCount, onOpen }) {
+  if (!challenge) return null;
+  const daysLeft = challenge.days ? `${challenge.days}d` : "—";
   return (
-    <View style={styles.featured}>
-      <ImageBackground
-        source={{ uri: PH.stairs }}
-        style={styles.featPh}
-        imageStyle={{ resizeMode: "cover" }}
-      >
-        <LinearGradient
-          colors={[
-            "rgba(6,36,63,0.15)",
-            "rgba(6,36,63,0.55)",
-            "rgba(6,36,63,0.94)",
-          ]}
-          locations={[0, 0.55, 1]}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={styles.ftag}>
-          <PennantIcon size={11} color={colors.gold} strokeWidth={2.4} />
-          <Text style={styles.ftagText}>Featured this week</Text>
-        </View>
-        <View style={styles.phBody}>
-          <Text style={styles.featTitle}>Tower Challenge</Text>
-          <Text style={styles.featP}>
-            Climb 50 floors on the stair machine before Sunday.
-          </Text>
-        </View>
-      </ImageBackground>
-      <View style={styles.lower}>
-        <View style={styles.fStats}>
-          <View style={styles.fStat}>
-            <Text style={styles.fStatNum}>412</Text>
-            <Text style={styles.fStatLbl}>Climbing</Text>
+    <PressScale onPress={onOpen}>
+      <View style={styles.featured}>
+        <ImageBackground
+          source={{ uri: challenge.img || PH.stairs }}
+          style={styles.featPh}
+          imageStyle={{ resizeMode: "cover", backgroundColor: FALLBACK[challenge.type]?.[1] }}
+        >
+          <LinearGradient
+            colors={["rgba(6,36,63,0.15)", "rgba(6,36,63,0.55)", "rgba(6,36,63,0.94)"]}
+            locations={[0, 0.55, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.ftag}>
+            <PennantIcon size={11} color={colors.gold} strokeWidth={2.4} />
+            <Text style={styles.ftagText}>Featured</Text>
           </View>
-          <View style={styles.fStat}>
-            <Text style={styles.fStatNum}>500</Text>
-            <Text style={styles.fStatLbl}>XP reward</Text>
-          </View>
-          <View style={styles.fStat}>
-            <Text style={styles.fStatNum}>4d</Text>
-            <Text style={styles.fStatLbl}>Left</Text>
-          </View>
-        </View>
-        <PressScale onPress={joinTower}>
-          {joined ? (
-            <View style={[styles.joinBtn, styles.joinBtnJoined]}>
-              <Text style={[styles.joinText, { color: colors.text }]}>
-                Joined · 0 / 50 floors
+          <View style={styles.phBody}>
+            <Text style={styles.featTitle}>{challenge.title}</Text>
+            {!!challenge.desc && (
+              <Text style={styles.featP} numberOfLines={2}>
+                {challenge.desc}
               </Text>
+            )}
+          </View>
+        </ImageBackground>
+        <View style={styles.lower}>
+          <View style={styles.fStats}>
+            <View style={styles.fStat}>
+              <Text style={styles.fStatNum}>{joinedCount}</Text>
+              <Text style={styles.fStatLbl}>Joined</Text>
             </View>
-          ) : (
-            <LinearGradient
-              colors={[colors.gold, colors.goldDim]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={styles.joinBtn}
-            >
-              <Text style={styles.joinText}>Join the climb</Text>
-            </LinearGradient>
-          )}
-        </PressScale>
+            <View style={styles.fStat}>
+              <Text style={styles.fStatNum}>{challenge.xp}</Text>
+              <Text style={styles.fStatLbl}>XP reward</Text>
+            </View>
+            <View style={styles.fStat}>
+              <Text style={styles.fStatNum}>{daysLeft}</Text>
+              <Text style={styles.fStatLbl}>Window</Text>
+            </View>
+          </View>
+          <View style={joined ? [styles.joinBtn, styles.joinBtnJoined] : null}>
+            {joined ? (
+              <Text style={[styles.joinText, { color: colors.text }]}>Joined · tap to log</Text>
+            ) : (
+              <LinearGradient
+                colors={[colors.gold, colors.goldDim]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={styles.joinBtn}
+              >
+                <Text style={styles.joinText}>View challenge</Text>
+              </LinearGradient>
+            )}
+          </View>
+        </View>
       </View>
-    </View>
+    </PressScale>
   );
 }
 
@@ -101,10 +102,7 @@ function ChallengeCard({ c, onPress }) {
         <ImageBackground
           source={{ uri: c.img }}
           style={styles.chalPh}
-          imageStyle={{
-            resizeMode: "cover",
-            backgroundColor: FALLBACK[c.type]?.[1],
-          }}
+          imageStyle={{ resizeMode: "cover", backgroundColor: FALLBACK[c.type]?.[1] }}
         >
           <LinearGradient
             colors={["rgba(6,36,63,0.06)", "rgba(6,36,63,0.78)"]}
@@ -125,18 +123,14 @@ function ChallengeCard({ c, onPress }) {
         </ImageBackground>
         <View style={styles.foot}>
           <View style={{ flexDirection: "row" }}>
-            {c.avs.map((a, idx) => (
-              <View
-                key={idx}
-                style={[styles.avMini, idx > 0 && { marginLeft: -7 }]}
-              >
-                <KnightAvatar
-                  variant={a}
-                  plume={FACULTIES[a % 6].c}
-                  size={18}
-                />
-              </View>
-            ))}
+            {(c.recentParticipants || []).slice(0, 3).map((p, idx) => {
+              const fk = p.facultyKey || FACULTY_KEY_BY_VALUE[p.faculty] || "faculty9";
+              return (
+                <View key={p.id ?? idx} style={[styles.avMini, idx > 0 && { marginLeft: -7 }]}>
+                  <FacultyAvatar facultyKey={fk} level={p.level || 1} size={22} showRing={false} goldBg />
+                </View>
+              );
+            })}
           </View>
           <Text style={styles.ftxt}>
             {joined ? "Joined · " : ""}
@@ -149,56 +143,8 @@ function ChallengeCard({ c, onPress }) {
   );
 }
 
-function DailyQuestRow({ q, onPress, onClaim }) {
-  const done = q.cur >= q.max;
-  return (
-    <PressScale onPress={onPress} style={{ marginBottom: 10 }}>
-      <Card style={styles.quest}>
-        <View style={[styles.qicon, q.gold ? styles.qiconGold : null]}>
-          <QuestGlyph
-            name={q.icon}
-            color={questIconColor[q.icon] || colors.gold}
-            size={22}
-          />
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.qTitle}>{q.title}</Text>
-          <Text style={styles.qSub}>{q.sub}</Text>
-          <View style={{ marginTop: 9 }}>
-            <ProgressBar
-              pct={(q.cur / q.max) * 100}
-              height={5}
-              fillColor={done ? colors.green : colors.blue2}
-            />
-          </View>
-        </View>
-        {done && !q.claimed ? (
-          <PressScale onPress={onClaim}>
-            <LinearGradient
-              colors={[colors.gold, colors.goldDim]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={styles.claim}
-            >
-              <Text style={styles.claimText}>Claim +{q.xp}</Text>
-            </LinearGradient>
-          </PressScale>
-        ) : (
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={styles.xpTag}>+{q.xp} XP</Text>
-            <Text style={styles.xpTagSub}>
-              {q.claimed ? "Claimed" : `${q.cur}/${q.max}`}
-            </Text>
-          </View>
-        )}
-      </Card>
-    </PressScale>
-  );
-}
-
 export default function ChallengesScreen() {
-  const { challenges, quests, bumpQuest, claimQuest, openSheet, closeSheet } =
-    useApp();
+  const { challenges, openSheet, closeSheet, joinedChals } = useApp();
   const navigation = useNavigation();
 
   const openChallenge = (c) => {
@@ -214,36 +160,39 @@ export default function ChallengesScreen() {
     );
   };
 
+  const featured = challenges[0];
+  const rest = challenges.slice(1);
+
   return (
-    <ScrollView
-      contentContainerStyle={styles.scroll}
-      showsVerticalScrollIndicator={false}
-    >
-      <ScreenHeader
-        title="Challenges"
-        subtitle="Join campus challenges and clear daily quests to bank XP."
-      />
-      <FeaturedQuest />
+    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <View style={styles.glassHeader}>
+        <GlassTitle
+          title="Challenges"
+          subtitle="Join campus challenges and clear daily quests to bank XP."
+        />
+      </View>
+
+      {featured && (
+        <FeaturedChallenge
+          challenge={featured}
+          joined={!!joinedChals[featured.id]}
+          joinedCount={featured.joined}
+          onOpen={() => openChallenge(featured)}
+        />
+      )}
 
       <SectionRow title="Browse challenges" />
-      {challenges.map((c) => (
+      {rest.map((c) => (
         <ChallengeCard key={c.id} c={c} onPress={() => openChallenge(c)} />
       ))}
 
-      <SectionRow title="Daily quests" />
-      {quests.map((q) => (
-        <DailyQuestRow
-          key={q.id}
-          q={q}
-          onPress={() => bumpQuest(q.id)}
-          onClaim={() => claimQuest(q.id)}
-        />
-      ))}
+
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  glassHeader: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6 },
   scroll: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 124 },
 
   featured: {
@@ -276,12 +225,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   phBody: { paddingHorizontal: 18, paddingBottom: 16 },
-  featTitle: {
-    fontFamily: disp.bold,
-    fontSize: 24,
-    letterSpacing: -0.5,
-    color: "#fff",
-  },
+  featTitle: { fontFamily: disp.bold, fontSize: 24, letterSpacing: -0.5, color: "#fff" },
   featP: {
     marginTop: 6,
     fontSize: 13,
@@ -358,18 +302,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingBottom: 12,
   },
-  chalTitle: {
-    fontFamily: disp.bold,
-    fontSize: 16,
-    letterSpacing: -0.1,
-    color: "#fff",
-  },
-  chalSub: {
-    marginTop: 3,
-    fontFamily: body.medium,
-    fontSize: 11.5,
-    color: "rgba(238,243,250,0.8)",
-  },
+  chalTitle: { fontFamily: disp.bold, fontSize: 16, letterSpacing: -0.1, color: "#fff" },
+  chalSub: { marginTop: 3, fontFamily: body.medium, fontSize: 11.5, color: "rgba(238,243,250,0.8)" },
   xpb: {
     backgroundColor: "rgba(6,36,63,0.5)",
     borderWidth: 1,
@@ -398,12 +332,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  ftxt: {
-    flex: 1,
-    fontFamily: body.medium,
-    fontSize: 11.5,
-    color: colors.text2,
-  },
+  ftxt: { flex: 1, fontFamily: body.medium, fontSize: 11.5, color: colors.text2 },
   goText: { fontFamily: disp.bold, fontSize: 12, color: colors.blue2 },
 
   quest: {
@@ -425,36 +354,15 @@ const styles = StyleSheet.create({
     borderColor: colors.blueLine,
   },
   qiconGold: { backgroundColor: colors.goldSoft, borderColor: colors.goldLine },
-  qTitle: {
-    fontFamily: disp.semibold,
-    fontSize: 14.5,
-    letterSpacing: -0.1,
-    color: colors.text,
-  },
-  qSub: {
-    marginTop: 3,
-    fontFamily: body.regular,
-    fontSize: 12,
-    lineHeight: 16,
-    color: colors.text2,
-  },
+  qTitle: { fontFamily: disp.semibold, fontSize: 14.5, letterSpacing: -0.1, color: colors.text },
+  qSub: { marginTop: 3, fontFamily: body.regular, fontSize: 12, lineHeight: 16, color: colors.text2 },
   xpTag: { fontFamily: disp.bold, fontSize: 12, color: colors.gold },
-  xpTagSub: {
-    fontFamily: body.medium,
-    fontSize: 9.5,
-    color: colors.text3,
-    marginTop: 2,
-  },
+  xpTagSub: { fontFamily: body.medium, fontSize: 9.5, color: colors.text3, marginTop: 2 },
   claim: {
     paddingVertical: 11,
     paddingHorizontal: 14,
     borderRadius: 12,
     ...shadow.accent("rgba(216,169,74,0.7)"),
   },
-  claimText: {
-    fontFamily: disp.bold,
-    fontSize: 12,
-    color: colors.goldInk,
-    textAlign: "center",
-  },
+  claimText: { fontFamily: disp.bold, fontSize: 12, color: colors.goldInk, textAlign: "center" },
 });

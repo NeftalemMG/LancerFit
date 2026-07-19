@@ -1,10 +1,19 @@
-import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, radius, shadow } from '../../theme/tokens';
-import { disp, body } from '../../theme/typography';
-import { Card, PressScale } from '../ui';
-import { ChevronRight } from '../icons';
+import React, { useMemo, useState } from "react";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { colors, radius, shadow } from "../../theme/tokens";
+import { disp, body } from "../../theme/typography";
+import { Card, PressScale } from "../ui";
+import { ChevronRight } from "../icons";
+import BottomSheetModal from "../BottomSheetModal";
+import FacultyBadge from "../FacultyBadge";
 
 export default function AuthSelect({
   label,
@@ -17,9 +26,12 @@ export default function AuthSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const insets = useSafeAreaInsets();
 
-  const selectedOption = useMemo(() => options.find((option) => option.value === value), [options, value]);
+  const selectedOption = useMemo(
+    () => options.find((option) => option.value === value),
+    [options, value],
+  );
+
   const filteredOptions = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return options;
@@ -39,6 +51,9 @@ export default function AuthSelect({
       <Text style={styles.label}>{label}</Text>
       <PressScale onPress={() => setOpen(true)}>
         <View style={[styles.box, error && styles.boxError]}>
+          {selectedOption?.key ? (
+            <FacultyBadge facultyKey={selectedOption.key} size={30} />
+          ) : null}
           <Text numberOfLines={1} style={[styles.input, !selectedOption && styles.placeholder]}>
             {selectedOption ? selectedOption.label : placeholder}
           </Text>
@@ -47,70 +62,70 @@ export default function AuthSelect({
       </PressScale>
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
-        <View style={styles.modalRoot}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={close} />
-
-          {/* panel is capped at 75% of screen height and sits on a solid surface color,
-              so the Sign Up form behind it can no longer bleed through */}
-          <View style={styles.panelWrap}>
-            <Card style={styles.panel}>
-              <View style={styles.grab} />
-              <View style={styles.panelHeader}>
-                <Text style={styles.panelTitle}>{label}</Text>
-                <PressScale onPress={close} hitSlop={10}>
-                  <View style={styles.closeBtn}>
-                    <Text style={styles.closeBtnText}>Done</Text>
-                  </View>
-                </PressScale>
-              </View>
-
-              <View style={styles.searchBox}>
-                <TextInput
-                  value={query}
-                  onChangeText={setQuery}
-                  placeholder={searchPlaceholder}
-                  placeholderTextColor={colors.text3}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  style={styles.searchInput}
-                />
-              </View>
-
-              <ScrollView
-                style={styles.scrollArea}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={[styles.list, { paddingBottom: 24 + insets.bottom }]}
-                keyboardShouldPersistTaps="handled"
-              >
-                {filteredOptions.map((option) => {
-                  const selected = option.value === value;
-                  const meta = option.meta || (option.value.length <= 12 ? option.value.toUpperCase() : '');
-                  return (
-                    <PressScale
-                      key={option.value}
-                      onPress={() => {
-                        onChange(option.value);
-                        close();
-                      }}
-                      style={styles.optionWrap}
-                    >
-                      <View style={[styles.option, selected && styles.optionSelected]}>
-                        <View style={styles.optionTextWrap}>
-                          <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]}>{option.label}</Text>
-                          {meta ? <Text style={styles.optionMeta}>{meta}</Text> : null}
-                        </View>
-                        {selected ? <Text style={styles.check}>Selected</Text> : <ChevronRight size={14} color={colors.text3} strokeWidth={2.2} />}
-                      </View>
-                    </PressScale>
-                  );
-                })}
-                {filteredOptions.length === 0 ? <Text style={styles.empty}>No matches found.</Text> : null}
-              </ScrollView>
-            </Card>
-          </View>
+      <BottomSheetModal visible={open} onClose={close} maxHeightRatio={0.75}>
+        <View style={styles.panelHeader}>
+          <Text style={styles.panelTitle} numberOfLines={1}>{label}</Text>
+          <PressScale onPress={close} hitSlop={10}>
+            <View style={styles.closeBtn}>
+              <Text style={styles.closeBtnText}>Done</Text>
+            </View>
+          </PressScale>
         </View>
-      </Modal>
+
+        <View style={styles.searchBox}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder={searchPlaceholder}
+            placeholderTextColor={colors.text3}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={styles.searchInput}
+          />
+        </View>
+
+        <ScrollView
+          style={styles.scrollArea}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="handled"
+        >
+          {filteredOptions.map((option) => {
+            const selected = option.value === value;
+            const meta = option.meta || (option.value.length <= 12 ? option.value.toUpperCase() : '');
+            return (
+              <PressScale
+                key={option.value}
+                onPress={() => {
+                  onChange(option.value);
+                  close();
+                }}
+                style={styles.optionWrap}
+              >
+                <View style={[styles.option, selected && styles.optionSelected]}>
+                  {option.key ? (
+                    <FacultyBadge facultyKey={option.key} size={34} />
+                  ) : null}
+                  <View style={styles.optionTextWrap}>
+                    <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]}>
+                      {option.label}
+                    </Text>
+                    {meta ? <Text style={styles.optionMeta}>{meta}</Text> : null}
+                  </View>
+                  {selected ? (
+                    <Text style={styles.check}>Selected</Text>
+                  ) : (
+                    <ChevronRight size={14} color={colors.text3} strokeWidth={2.2} />
+                  )}
+                </View>
+              </PressScale>
+            );
+          })}
+          {filteredOptions.length === 0 ? (
+            <Text style={styles.empty}>No matches found.</Text>
+          ) : null}
+        </ScrollView>
+      </BottomSheetModal>
     </View>
   );
 }
@@ -125,7 +140,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.3,
     color: colors.text3,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   box: {
     minHeight: 54,
@@ -135,13 +150,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cardLine,
     backgroundColor: colors.card,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 10,
   },
   boxError: {
-    borderColor: 'rgba(224,168,56,0.75)',
+    borderColor: "rgba(224,168,56,0.75)",
   },
   input: {
     flex: 1,
@@ -166,21 +181,21 @@ const styles = StyleSheet.create({
   // distinct surface instead of a see-through layer
   modalRoot: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(2,10,20,0.78)',
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(2,10,20,0.78)",
   },
 
   // wrapper caps the sheet at 75% of the screen — it no longer
   // stretches to fill the whole modal
   panelWrap: {
-    maxHeight: '75%',
+    maxHeight: "75%",
     flexShrink: 1,
   },
 
   panel: {
     flexShrink: 1,
     minHeight: 0,
-    overflow: 'hidden',
+    overflow: "hidden",
     paddingTop: 10,
     paddingHorizontal: 16,
     paddingBottom: 0,
@@ -200,14 +215,14 @@ const styles = StyleSheet.create({
     width: 42,
     height: 5,
     borderRadius: 99,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    alignSelf: 'center',
+    backgroundColor: "rgba(255,255,255,0.22)",
+    alignSelf: "center",
     marginBottom: 12,
   },
   panelHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 14,
   },
   panelTitle: {
@@ -236,7 +251,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cardLine,
     backgroundColor: colors.card,
-    justifyContent: 'center',
+    justifyContent: "center",
     marginBottom: 14,
   },
   searchInput: {
@@ -247,6 +262,7 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingTop: 2,
+    paddingBottom: 40,
   },
   optionWrap: {
     marginBottom: 10,
@@ -259,9 +275,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cardLine,
     backgroundColor: colors.card,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 12,
   },
   optionSelected: {
@@ -297,6 +313,6 @@ const styles = StyleSheet.create({
     fontFamily: body.medium,
     fontSize: 12,
     color: colors.text3,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });

@@ -5,13 +5,14 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { logoutUser } from "../services/authApi";
+import { loadAuth, saveAuth, clearAuth } from "../services/tokenStore";
+import { connectRealtime, disconnectRealtime } from "../services/realtime";
+import { unregisterPushToken } from "../hooks/usePushNotifications";
+import { getStoredPushToken } from "../services/pushTokenStore";
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
-
-const STORAGE_KEY = "lancerfit_auth";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -19,74 +20,58 @@ export function AuthProvider({ children }) {
 
   const isAuthenticated = !!user;
 
-  // -----------------------------
-  // Load session on app start
-  // -----------------------------
+  // Restore session on app start and (re)open the realtime socket.
   useEffect(() => {
-    const loadAuth = async () => {
+    (async () => {
       try {
-        const stored = await AsyncStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          setUser(parsed.user || null);
+        const stored = await loadAuth();
+        if (stored?.user) {
+          setUser(stored.user);
+          await connectRealtime();
         }
       } catch (err) {
         console.log("Auth load error:", err);
       } finally {
         setIsLoading(false);
       }
-    };
-
-    loadAuth();
+    })();
   }, []);
 
-  // -----------------------------
-  // LOGIN
-  // -----------------------------
+  // login(response): response is the backend auth payload
+  // { user, accessToken, refreshToken }. We persist all three so the API client
+  // can attach + refresh tokens, then connect realtime.
   const login = useCallback(async (response) => {
     const payload = {
       user: response?.user,
       accessToken: response?.accessToken,
       refreshToken: response?.refreshToken,
     };
-
     setUser(payload.user);
-
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch (err) {
-      console.log("Auth save error:", err);
-    }
+    await saveAuth(payload);
+    await connectRealtime();
   }, []);
 
-  // -----------------------------
-  // LOGOUT
-  // -----------------------------
   const logout = useCallback(async () => {
+    try {
+      // Detach this device's push token first so a shared phone stops getting
+      // this account's notifications.
+      await unregisterPushToken(getStoredPushToken());
+    } catch (err) {
+      console.log("Push unregister error:", err);
+    }
     try {
       await logoutUser();
     } catch (err) {
       console.log("Logout API error:", err);
     }
-
     setUser(null);
-
-    try {
-      await AsyncStorage.removeItem(STORAGE_KEY);
-    } catch (err) {
-      console.log("Auth clear error:", err);
-    }
+    await clearAuth();
+    disconnectRealtime();
   }, []);
 
   return (
     <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated,
-        isLoading,
-        login,
-        logout,
-      }}
+      value={{ user, isAuthenticated, isLoading, login, logout }}
     >
       {children}
     </AuthContext.Provider>

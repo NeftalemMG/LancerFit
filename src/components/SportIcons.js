@@ -1,7 +1,3 @@
-import React from 'react';
-import Svg, { Path, Circle, Rect, Line, Ellipse, G } from 'react-native-svg';
-
-// 
 // SPORT ICONS — custom, hand-drawn monoline glyphs for the
 // Log Activity flow.
 // Each sport has its own silhouette so the catalog reads as a
@@ -10,7 +6,9 @@ import Svg, { Path, Circle, Rect, Line, Ellipse, G } from 'react-native-svg';
 // Convention: stroke-based, round caps/joins, drawn on a 24x24
 // grid, currentColor driven so a single accent tints the whole
 // tile. A few use a soft fill (color + '33') for depth.
-// 
+
+import React from 'react';
+import Svg, { Path, Circle, Rect, Line, Ellipse, G } from 'react-native-svg';
 
 const S = (color, sw) => ({
   fill: 'none',

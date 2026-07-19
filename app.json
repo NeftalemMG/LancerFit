@@ -12,21 +12,44 @@
       "resizeMode": "contain",
       "backgroundColor": "#0B2742"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
-      "userInterfaceStyle": "dark"
+      "userInterfaceStyle": "dark",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to track your workouts and provide personalized fitness recommendations.",
+        "NSMotionUsageDescription": "This app uses motion data to track your physical activity and provide personalized fitness recommendations.",
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B2742"
       },
+      "softwareKeyboardLayoutMode": "resize",
       "userInterfaceStyle": "dark",
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACTIVITY_RECOGNITION",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#FFD157"
+        }
+      ]
+    ]
   }
 }

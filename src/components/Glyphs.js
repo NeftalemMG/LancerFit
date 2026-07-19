@@ -1,10 +1,9 @@
+// FACULTY CRESTS — one monoline glyph per faculty, drawn in the
+// faculty colour (passed as `color`). Ported from FACULTIES[].g.
+
 import React from 'react';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
-// ============================================================
-// FACULTY CRESTS — one monoline glyph per faculty, drawn in the
-// faculty colour (passed as `color`). Ported from FACULTIES[].g.
-// ============================================================
 export function FacultyCrest({ id, color, size = 21 }) {
   const common = { stroke: color, strokeWidth: 2, fill: 'none', strokeLinecap: 'round', strokeLinejoin: 'round' };
   return (

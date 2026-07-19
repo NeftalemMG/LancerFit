@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius, shadow } from "../theme/tokens";
 import { disp, body } from "../theme/typography";
-import { Card, PressScale } from "../components/ui";
+import { Card, PressScale, KeyboardScreen } from "../components/ui";
 import { ArrowRight } from "../components/icons";
 import AuthHeader from "../components/auth/AuthHeader";
 import AuthField from "../components/auth/AuthField";
@@ -26,6 +26,8 @@ export default function SignUpScreen({ onSignUpSuccess, navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [faculty, setFaculty] = useState("");
   const [nationality, setNationality] = useState("");
   const [errors, setErrors] = useState({});
@@ -42,7 +44,7 @@ export default function SignUpScreen({ onSignUpSuccess, navigation }) {
     const result = validateSignUp({
       firstName,
       lastName,
-      email,
+      email: email.trim().toLowerCase(),
       password,
       confirmPassword,
       faculty,
@@ -61,7 +63,7 @@ export default function SignUpScreen({ onSignUpSuccess, navigation }) {
       onSignUpSuccess?.(response);
     } catch (error) {
       if (error?.status === 409) {
-        setSubmitError("That email is already registered.");
+        setSubmitError("An account with this email already exists.");
       } else if (
         error?.status === 400 &&
         Array.isArray(error.errors) &&
@@ -89,14 +91,13 @@ export default function SignUpScreen({ onSignUpSuccess, navigation }) {
     <View style={styles.root}>
       <AuthHeader
         title="Sign Up"
-        subtitle="Create your LancerFit account to get started."
-        note="University of Windsor registration"
+        subtitle="Use your University of Windsor email to get started."
+        note="Built for the Toldo Lancer Centre experience."
       />
 
-      <ScrollView
+      <KeyboardScreen
         contentContainerStyle={styles.body}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardVerticalOffset={12}
       >
         <Card style={styles.formCard}>
           <AuthField
@@ -140,39 +141,49 @@ export default function SignUpScreen({ onSignUpSuccess, navigation }) {
             error={errors.email}
           />
 
-          <View style={styles.nameRow}>
-            <View style={styles.nameCol}>
-              <AuthField
-                label="Password"
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Create a password"
-                inputRef={passwordRef}
-                textContentType="newPassword"
-                secureTextEntry
-                autoComplete="new-password"
-                returnKeyType="next"
-                onSubmitEditing={() => confirmPasswordRef.current?.focus()}
-                error={errors.password}
-              />
-            </View>
+          <AuthField
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Create a password"
+            inputRef={passwordRef}
+            textContentType="newPassword"
+            secureTextEntry={!showPassword}
+            autoComplete="new-password"
+            returnKeyType="next"
+            onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+            preventCopyPaste
+            error={errors.password}
+            rightSlot={
+              <PressScale onPress={() => setShowPassword((v) => !v)}>
+                <Text style={styles.toggleText}>
+                  {showPassword ? "Hide" : "Show"}
+                </Text>
+              </PressScale>
+            }
+          />
 
-            <View style={styles.nameCol}>
-              <AuthField
-                label="Confirm Password"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="Re-enter password"
-                inputRef={confirmPasswordRef}
-                textContentType="newPassword"
-                secureTextEntry
-                autoComplete="new-password"
-                returnKeyType="next"
-                onSubmitEditing={submit}
-                error={errors.confirmPassword}
-              />
-            </View>
-          </View>
+          <AuthField
+            label="Confirm Password"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="Re-enter password"
+            inputRef={confirmPasswordRef}
+            textContentType="newPassword"
+            secureTextEntry={!showConfirmPassword}
+            autoComplete="new-password"
+            returnKeyType="next"
+            onSubmitEditing={submit}
+            preventCopyPaste
+            error={errors.confirmPassword}
+            rightSlot={
+              <PressScale onPress={() => setShowConfirmPassword((v) => !v)}>
+                <Text style={styles.toggleText}>
+                  {showConfirmPassword ? "Hide" : "Show"}
+                </Text>
+              </PressScale>
+            }
+          />
 
           <AuthSelect
             label="Faculty"
@@ -218,11 +229,14 @@ export default function SignUpScreen({ onSignUpSuccess, navigation }) {
 
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>Already have an account?</Text>
-          <PressScale onPress={() => navigation.navigate("signin")} disabled={submitting}>
+          <PressScale
+            onPress={() => navigation.navigate("signin")}
+            disabled={submitting}
+          >
             <Text style={styles.footerLink}>Sign In</Text>
           </PressScale>
         </View>
-      </ScrollView>
+      </KeyboardScreen>
     </View>
   );
 }
@@ -241,6 +255,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cardLine2,
     ...shadow.card,
+  },
+  toggleText: {
+    fontFamily: disp.semibold,
+    fontSize: 12,
+    color: colors.blue,
   },
   submitWrap: {
     marginTop: 2,

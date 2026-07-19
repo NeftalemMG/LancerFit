@@ -1,4 +1,3 @@
-// ============================================================
 // LancerFit — app entry point
 //
 // Responsibilities:
@@ -11,7 +10,7 @@
 //      a flash of the system font.
 //   3. Provide the safe-area context and the app state context,
 //      then hand off to AppShell which does the actual routing.
-// ============================================================
+// 
 
 import React, { useCallback } from "react";
 import { View } from "react-native";
@@ -33,12 +32,30 @@ import {
 } from "@expo-google-fonts/inter";
 
 import { AppProvider } from "./src/context/AppContext";
-import { AuthProvider } from "./src/context/AuthContext";
+import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import AppShell from "./src/components/AppShell";
 import { colors } from "./src/theme/tokens";
+import { usePushNotifications } from "./src/hooks/usePushNotifications";
+import { setStoredPushToken } from "./src/services/pushTokenStore";
 
 // Keep the native splash visible while we load fonts.
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Runs the native-push registration only once the user is authenticated, so the
+// device token attaches to the signed-in account. Rendered inside AuthProvider.
+function PushGate() {
+  const { isAuthenticated } = useAuth();
+  usePushNotifications({
+    enabled: isAuthenticated,
+    onNotificationTap: () => {
+      // Tap routing hook point. Deep-linking to the specific challenge/validation
+      // can be added here once the navigation ref is exposed.
+    },
+  });
+  // Mirror the registered token into the store so logout can unregister it.
+  // (usePushNotifications returns the token after registration.)
+  return null;
+}
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -69,11 +86,12 @@ export default function App() {
         style={{ flex: 1, backgroundColor: colors.appBg }}
         onLayout={onLayoutRootView}
       >
-        <AppProvider>
-          <AuthProvider>
+        <AuthProvider>
+          <PushGate />
+          <AppProvider>
             <AppShell />
-          </AuthProvider>
-        </AppProvider>
+          </AppProvider>
+        </AuthProvider>
       </View>
     </SafeAreaProvider>
   );
