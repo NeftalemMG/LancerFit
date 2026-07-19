@@ -9,6 +9,25 @@
 
 import { useState, useEffect, useRef } from "react";
 
+// Raise a single "you're at the gym" banner when the user first enters range.
+// Guarded so a missing notifications package never breaks proximity tracking.
+function presentCheckinPrompt() {
+  try {
+    const Notifications = require("expo-notifications");
+    Notifications.scheduleNotificationAsync({
+      content: {
+        title: "You're at the Toldo Lancer Centre",
+        body: "Tap to check in and bank +75 XP.",
+        data: { type: "gym:checkin" },
+        sound: "default",
+      },
+      trigger: null,
+    });
+  } catch {
+    /* notifications unavailable — the in-app check-in card still works */
+  }
+}
+
 // Toldo Lancer Centre, University of Windsor.
 export const GYM = { latitude: 42.30389, longitude: -83.06722, name: "Toldo Lancer Centre" };
 const CHECKIN_RADIUS_M = 150;
@@ -30,6 +49,7 @@ export function useGymProximity() {
   const [nearGym, setNearGym] = useState(false);
   const [permission, setPermission] = useState("undetermined");
   const subRef = useRef(null);
+  const wasNearRef = useRef(false); // previous nearGym, to detect the rising edge
 
   useEffect(() => {
     let mounted = true;
@@ -56,7 +76,12 @@ export function useGymProximity() {
               GYM,
             );
             setDistance(d);
-            setNearGym(d <= CHECKIN_RADIUS_M);
+            const near = d <= CHECKIN_RADIUS_M;
+            setNearGym(near);
+            // Rising edge only: fire the check-in banner the moment the user
+            // arrives, not repeatedly while they stay in range.
+            if (near && !wasNearRef.current) presentCheckinPrompt();
+            wasNearRef.current = near;
           },
         );
       } catch {
