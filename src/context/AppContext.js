@@ -65,21 +65,6 @@ function toAppQuest(q) {
   };
 }
 
-function toAppQuest(q) {
-  return {
-    id: q.questId ?? q.id,
-    icon: q.icon || 'star',
-    title: q.title,
-    sub: q.category || '',
-    cur: 0,
-    max: 1,
-    xp: q.xp,
-    claimed: false,
-    gold: false,
-    _live: true,
-  };
-}
-
 // Map a participant "myStatus" from /challenge/me into the sheet's status vocab.
 // backend statuses: pending (registered, no result) / approved / rejected.
 // We add a client-only "submitted" once the user has sent a result but it's
