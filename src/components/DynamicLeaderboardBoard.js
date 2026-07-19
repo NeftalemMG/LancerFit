@@ -16,6 +16,7 @@ import { fmt } from "../data/appData";
 import { Crown } from "./icons";
 import { Card } from "./ui";
 import FacultyAvatar from "./FacultyAvatar";
+import FacultyBadge from "./FacultyBadge";
 import { themeForFaculty } from "../data/facultyTheme";
 import { flagFor } from "../data/countries";
 
@@ -25,12 +26,9 @@ const PODIUM_HEIGHTS = [58, 80, 46];
 function Avatar({ row, size, grouped }) {
   const theme = themeForFaculty(row.facultyKey);
   if (grouped) {
-    // Faculty mode: a colored crest disc in the faculty's color.
-    return (
-      <View style={[styles.facultyDisc, { width: size, height: size, borderRadius: size * 0.28, backgroundColor: theme.accentSoft, borderColor: theme.accentLine }]}>
-        <View style={[styles.facultyDot, { backgroundColor: theme.accent }]} />
-      </View>
-    );
+    // Faculty mode: the faculty's crest badge in a glass box tinted to the
+    // faculty accent (replaces the plain colored disc).
+    return <FacultyBadge facultyKey={row.facultyKey} size={size} />;
   }
   return <FacultyAvatar facultyKey={row.facultyKey} level={row.level || 1} size={size} goldBg />;
 }
