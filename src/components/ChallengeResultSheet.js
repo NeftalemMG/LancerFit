@@ -46,8 +46,13 @@ export default function ChallengeResultSheet({ challenge: c, onDone }) {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.eyebrow}>Log your result</Text>
-      <Text style={styles.title}>{c.title}</Text>
+      <View style={styles.titleRow}>
+        <View style={styles.titleEdge} />
+        <View style={{ flexShrink: 1 }}>
+          <Text style={styles.eyebrow}>Log your result</Text>
+          <Text style={styles.title}>{c.title}</Text>
+        </View>
+      </View>
       <Text style={styles.desc}>
         Enter what you completed in front of TLC staff. An admin reviews it before
         it counts on the leaderboard.
@@ -102,7 +107,9 @@ export default function ChallengeResultSheet({ challenge: c, onDone }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { paddingHorizontal: 26, paddingTop: 22, paddingBottom: 30, alignItems: "center" },
+  wrap: { paddingHorizontal: 22, paddingTop: 20, paddingBottom: 30, alignItems: "stretch" },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 11, alignSelf: "flex-start", maxWidth: "100%" },
+  titleEdge: { width: 4, height: 34, borderRadius: 2, backgroundColor: colors.gold },
   eyebrow: {
     fontFamily: body.semibold,
     fontSize: 11,
@@ -115,16 +122,15 @@ const styles = StyleSheet.create({
     fontSize: 21,
     letterSpacing: -0.5,
     color: colors.text,
-    marginTop: 8,
-    textAlign: "center",
+    marginTop: 3,
+    textAlign: "left",
   },
   desc: {
-    marginTop: 10,
+    marginTop: 12,
     color: colors.text2,
     fontSize: 14,
     lineHeight: 21,
-    textAlign: "center",
-    maxWidth: 300,
+    textAlign: "left",
     fontFamily: body.regular,
   },
   inputRow: {
