@@ -13,6 +13,8 @@ import { disp, body } from "../theme/typography";
 import { useApp } from "../context/AppContext";
 import { FACULTIES, FALLBACK, PH } from "../data/appData";
 import KnightAvatar from "../components/KnightAvatar";
+import FacultyAvatar from "../components/FacultyAvatar";
+import { FACULTY_KEY_BY_VALUE } from "../data/authOptions";
 import { QuestGlyph } from "../components/Glyphs";
 import {
   Card,
@@ -121,11 +123,14 @@ function ChallengeCard({ c, onPress }) {
         </ImageBackground>
         <View style={styles.foot}>
           <View style={{ flexDirection: "row" }}>
-            {(c.avs || [0, 1, 2]).map((a, idx) => (
-              <View key={idx} style={[styles.avMini, idx > 0 && { marginLeft: -7 }]}>
-                <KnightAvatar variant={a} plume={FACULTIES[a % 6].c} size={18} />
-              </View>
-            ))}
+            {(c.recentParticipants || []).slice(0, 3).map((p, idx) => {
+              const fk = p.facultyKey || FACULTY_KEY_BY_VALUE[p.faculty] || "faculty9";
+              return (
+                <View key={p.id ?? idx} style={[styles.avMini, idx > 0 && { marginLeft: -7 }]}>
+                  <FacultyAvatar facultyKey={fk} level={p.level || 1} size={22} showRing={false} goldBg />
+                </View>
+              );
+            })}
           </View>
           <Text style={styles.ftxt}>
             {joined ? "Joined · " : ""}
