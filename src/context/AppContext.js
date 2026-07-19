@@ -44,6 +44,23 @@ function toAppChallenge(c) {
     unit: c.unit,
     goal: c.goal,
     pointsPerUnit: c.pointsPerUnit ?? 0,
+    // Latest joiners (real avatars) for the browse card; empty when none.
+    recentParticipants: Array.isArray(c.recentParticipants) ? c.recentParticipants : [],
+    _live: true,
+  };
+}
+
+function toAppQuest(q) {
+  return {
+    id: q.questId ?? q.id,
+    icon: q.icon || 'star',
+    title: q.title,
+    sub: q.category || '',
+    cur: 0,
+    max: 1,
+    xp: q.xp,
+    claimed: false,
+    gold: false,
     _live: true,
   };
 }
@@ -198,8 +215,16 @@ export function AppProvider({ children }) {
         if (cs.some((c) => String(c.id) === String(payload.id))) return cs;
         return [toAppChallenge(payload), ...cs];
       });
+<<<<<<< Updated upstream
       toast(`New challenge: ${payload.title}`);
     }, []),
+=======
+      // Belt-and-suspenders: refetch the authoritative list so the new
+      // challenge always shows live even if the payload isn't a full challenge.
+      loadChallenges();
+      toast(`New challenge: ${payload.title || "New challenge"}`);
+    }, [loadChallenges]),
+>>>>>>> Stashed changes
   );
 
   useRealtime(
