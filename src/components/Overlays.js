@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   StyleSheet,
   Dimensions,
   BackHandler,
+  Keyboard,
+  Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, shadow } from "../theme/tokens";
@@ -44,6 +46,34 @@ export function Sheet() {
   const translateY = useRef(new Animated.Value(height)).current;
   const veil = useRef(new Animated.Value(0)).current;
   const maxHeight = height * SHEET_MAX_HEIGHT_RATIO;
+
+  // Track the keyboard so we can lift the whole sheet above it. A bottom-pinned
+  // sheet isn't reliably raised by KeyboardAvoidingView's "padding" behavior, so
+  // we translate the sheet up by the keyboard height (minus the safe-area the
+  // sheet already clears) whenever the keyboard is shown.
+  const kbOffset = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const showEvt = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvt = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const onShow = (e) => {
+      const h = e?.endCoordinates?.height ?? 0;
+      Animated.timing(kbOffset, {
+        toValue: -Math.max(0, h - 24),
+        duration: Platform.OS === "ios" ? (e?.duration ?? 250) : 180,
+        useNativeDriver: true,
+      }).start();
+    };
+    const onHide = (e) => {
+      Animated.timing(kbOffset, {
+        toValue: 0,
+        duration: Platform.OS === "ios" ? (e?.duration ?? 250) : 180,
+        useNativeDriver: true,
+      }).start();
+    };
+    const s1 = Keyboard.addListener(showEvt, onShow);
+    const s2 = Keyboard.addListener(hideEvt, onHide);
+    return () => { s1.remove(); s2.remove(); };
+  }, [kbOffset]);
 
   useEffect(() => {
     if (sheet.open) {
@@ -102,7 +132,7 @@ export function Sheet() {
         <Pressable style={StyleSheet.absoluteFill} onPress={closeSheet} />
       </Animated.View>
       <Animated.View
-        style={[styles.sheet, { maxHeight, transform: [{ translateY }] }]}
+        style={[styles.sheet, { maxHeight, transform: [{ translateY: Animated.add(translateY, kbOffset) }] }]}
       >
         <LinearGradient
           colors={["#0E3457", "#082A47"]}
@@ -112,6 +142,7 @@ export function Sheet() {
         {sheet.flush && <View style={[styles.grab, styles.grabFlush]} />}
         <ScrollView
           bounces={false}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={
             sheet.flush ? styles.scrollContentFlush : styles.scrollContent
