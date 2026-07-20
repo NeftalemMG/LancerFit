@@ -60,7 +60,9 @@ export default function SignUpScreen({ onSignUpSuccess, navigation }) {
     setSubmitting(true);
     try {
       const response = await registerUser(result.values);
-      onSignUpSuccess?.(response);
+      navigation.navigate("verifyEmail", {
+        email: response.email,
+      });
     } catch (error) {
       if (error?.status === 409) {
         setSubmitError("An account with this email already exists.");

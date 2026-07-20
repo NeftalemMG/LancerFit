@@ -4,6 +4,15 @@ import { getRefreshToken } from "./tokenStore";
 export async function registerUser(payload) {
   return api("/auth/register", { method: "POST", body: payload, auth: false });
 }
+export async function verifyEmail(payload) {
+  return api("/auth/verify-email", { method: "POST", body: payload, auth: false });
+}
+export async function verifyResetCode(payload) {
+  return api("/auth/verify-reset-code", { method: "POST", body: payload, auth: false });
+}
+export async function resendVerificationCode(payload) {
+  return api("/auth/resend-verification", { method: "POST", body: payload, auth: false });
+}
 export async function loginUser(payload) {
   return api("/auth/login", { method: "POST", body: payload, auth: false });
 }
