@@ -6,7 +6,6 @@ export const colors = {
   bg0: '#0C1530', // darkest base - deep indigo
   bg1: '#13214D', // matches the Figma card navy
   bg2: '#19294F',
-  fieldWarm: '#172murderError', // -> use '#16244C'
   appBg: '#0C1530', // body background behind the phone
 
   // translucent surfaces over the navy

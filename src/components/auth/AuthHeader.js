@@ -36,6 +36,8 @@ const styles = StyleSheet.create({
   },
   heroInner: {
     gap: 0,
+    paddingTop: 24,
+
   },
   title: {
     fontFamily: disp.bold,
