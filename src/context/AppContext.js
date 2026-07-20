@@ -257,6 +257,13 @@ export function AppProvider({ children }) {
     }, [refreshMe]),
   );
 
+  useRealtime(
+    "quests:updated",
+    useCallback(()=>{
+      loadQuests();
+    },[loadQuests])
+  )
+
   // ---- Toast ----
   const [toastMsg, setToastMsg] = useState("");
   const toastY = useRef(new Animated.Value(16)).current;
