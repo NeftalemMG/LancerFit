@@ -23,7 +23,9 @@ export function validateSignUp(values) {
     errors.email = 'Email is required.';
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     errors.email = 'Enter a valid email address.';
-  }
+  } else if (!email.toLowerCase().endsWith('@uwindsor.ca')) {
+  errors.email = 'Use your University of Windsor email address.';
+}
 
   if (password.length < 8) {
     errors.password = 'Password must be at least 8 characters.';
@@ -100,3 +102,31 @@ export function validateSignIn(values) {
   };
 }
 
+export function validateResetPassword(values) {
+  const errors = {};
+
+  const password = values.password ?? "";
+  const confirmPassword = values.confirmPassword ?? "";
+
+  if (!password) {
+    errors.password = "Password is required.";
+  } else if (password.length < 8) {
+    errors.password = "Password must be at least 8 characters.";
+  }
+
+  if (!confirmPassword) {
+    errors.confirmPassword = "Please confirm your password.";
+  } else if (password !== confirmPassword) {
+    errors.confirmPassword = "Passwords do not match.";
+  }
+
+  return {
+    valid: Object.keys(errors).length === 0,
+    errors,
+    values: {
+      ...values,
+      password,
+      confirmPassword,
+    },
+  };
+}
