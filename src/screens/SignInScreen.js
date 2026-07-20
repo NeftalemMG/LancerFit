@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { View, Text, ScrollView, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius, shadow } from "../theme/tokens";
@@ -11,7 +11,7 @@ import { loginUser } from "../services/authApi";
 import { validateSignIn } from "../utils/authValidation";
 import { useAuth } from "../context/AuthContext";
 
-export default function SignInScreen({ navigation }) {
+export default function SignInScreen({ navigation, route }) {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,7 +19,21 @@ export default function SignInScreen({ navigation }) {
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const passwordRef = useRef(null);
+
+  useEffect(() => {
+    if (route?.params?.passwordResetSuccess) {
+      setSuccessMessage(
+        "Password updated successfully. Please sign in with your new password.",
+      );
+
+      // Clear the param so it doesn't appear again
+      navigation.setParams({
+        passwordResetSuccess: undefined,
+      });
+    }
+  }, [route?.params?.passwordResetSuccess]);
 
   const submit = async () => {
     if (submitting) return;
@@ -53,6 +67,13 @@ export default function SignInScreen({ navigation }) {
     } catch (error) {
       if (error?.status === 401) {
         setSubmitError("Invalid email or password.");
+      } else if (
+        error?.status === 403 &&
+        error?.data?.code === "EMAIL_NOT_VERIFIED"
+      ) {
+        navigation.navigate("verifyEmail", {
+          email: error.data.email,
+        });
       } else {
         setSubmitError(error?.message || "Unable to sign in right now.");
       }
@@ -115,6 +136,9 @@ export default function SignInScreen({ navigation }) {
             <Text style={styles.submitError}>{submitError}</Text>
           ) : null}
 
+          {successMessage ? (
+            <Text style={styles.successMessage}>{successMessage}</Text>
+          ) : null}
           <PressScale
             onPress={() => navigation.navigate("forgot")}
             style={styles.forgotWrap}
@@ -206,6 +230,14 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 18,
     color: colors.gold,
+  },
+  successMessage: {
+    marginTop: 2,
+    marginBottom: 10,
+    fontFamily: body.medium,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: colors.green,
   },
   toggleText: {
     fontFamily: disp.semibold,
