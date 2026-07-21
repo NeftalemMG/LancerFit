@@ -7,7 +7,6 @@ import React, {
   useEffect,
 } from "react";
 import { Animated, Easing } from "react-native";
-import { initialState } from "../data/appData";
 import {
   fetchActiveChallenges,
   fetchMyChallenges,
@@ -79,9 +78,9 @@ function statusFromParticipation(p) {
 
 export function AppProvider({ children }) {
   const { isAuthenticated, user: authUser } = useAuth();
-  const [player, setPlayer] = useState({ ...initialState });
-  const [quests, setQuests] = useState();
-  const [challenges, setChallenges] = useState();
+  const [player, setPlayer] = useState({});
+  const [quests, setQuests] = useState([]);
+  const [challenges, setChallenges] = useState([]);
   const [joinedChals, setJoinedChals] = useState({});
   const [challengeStatus, setChallengeStatus] = useState({}); // { [id]: 'pending'|'submitted'|'approved'|'rejected' }
   const [levelUp, setLevelUp] = useState(null);
@@ -96,6 +95,7 @@ export function AppProvider({ children }) {
         facultyKey: FACULTY_KEY_BY_VALUE[authUser.faculty] || p.facultyKey,
         facultyLabel: authUser.faculty || p.facultyLabel,
         flagCode: authUser.nationality || p.flagCode,
+        totalXp: authUser.totalXp || 0
       }));
     }
     try {
@@ -258,6 +258,13 @@ export function AppProvider({ children }) {
     useCallback(()=>{
       loadQuests();
     },[loadQuests])
+  )
+
+  useRealtime(
+    "quests:pointsgranted",
+    useCallback(()=>{
+      refreshMe()
+    },[refreshMe])
   )
 
   // ---- Toast ----
