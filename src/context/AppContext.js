@@ -7,7 +7,7 @@ import React, {
   useEffect,
 } from "react";
 import { Animated, Easing } from "react-native";
-import { initialState, initialQuests, CHALLENGES } from "../data/appData";
+import { initialState } from "../data/appData";
 import {
   fetchActiveChallenges,
   fetchMyChallenges,
@@ -80,12 +80,8 @@ function statusFromParticipation(p) {
 export function AppProvider({ children }) {
   const { isAuthenticated, user: authUser } = useAuth();
   const [player, setPlayer] = useState({ ...initialState });
-  const [quests, setQuests] = useState(() =>
-    initialQuests.map((q) => ({ ...q })),
-  );
-  const [challenges, setChallenges] = useState(() =>
-    CHALLENGES.map((c) => ({ ...c })),
-  );
+  const [quests, setQuests] = useState();
+  const [challenges, setChallenges] = useState();
   const [joinedChals, setJoinedChals] = useState({});
   const [challengeStatus, setChallengeStatus] = useState({}); // { [id]: 'pending'|'submitted'|'approved'|'rejected' }
   const [levelUp, setLevelUp] = useState(null);
