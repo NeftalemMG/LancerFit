@@ -52,7 +52,7 @@ function toAppChallenge(c) {
 function toAppQuest(q) {
   return {
     id: q.questId ?? q.id,
-    icon: q.icon || 'star',
+    icon: 'bolt',
     title: q.title,
     sub: q.category || '',
     cur: 0,
@@ -405,29 +405,6 @@ export function AppProvider({ children }) {
     [addXP, toast],
   );
 
-  // ---- Featured Tower Challenge join (mock, unchanged) ----
-  const joinTower = useCallback(() => {
-    if (player.joinedTower) {
-      toast("You're already in the climb");
-      return;
-    }
-    setPlayer((p) => ({ ...p, joinedTower: true }));
-    setQuests((qs) => [
-      {
-        id: "tower-q",
-        icon: "flag",
-        title: "Tower Challenge",
-        sub: "Climb 50 floors at Toldo",
-        cur: 0,
-        max: 50,
-        xp: 500,
-        gold: true,
-      },
-      ...qs,
-    ]);
-    toast("Tower Challenge joined");
-  }, [player.joinedTower, toast]);
-
   // ---- Challenge join — calls the backend for live challenges ----
   const joinChallenge = useCallback(
     async (c) => {
@@ -489,7 +466,6 @@ export function AppProvider({ children }) {
     joinedChals,
     challengeStatus,
     joinChallenge,
-    joinTower,
     markChallengeSubmitted,
     reloadChallenges: loadChallenges,
     reloadQuests:loadQuests,
