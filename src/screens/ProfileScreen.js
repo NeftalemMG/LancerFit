@@ -142,7 +142,7 @@ export default function ProfileScreen({ navigation }) {
 
       {/* badges link */}
       <PressScale
-        onPress={() => navigation.navigate("badges")} //Changed to use native router navigate
+        onPress={() => navigation.navigate("Badges")} 
         style={{ marginTop: 14, marginBottom: 9 }}
       >
         <View style={styles.setBadges}>
