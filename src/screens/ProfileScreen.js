@@ -33,7 +33,9 @@ function Toggle({ on }) {
 }
 
 export default function ProfileScreen({ navigation }) {
-  const { player, toast } = useApp();
+  const { player, toast, displayBadges } = useApp();
+  const earnedCount = displayBadges.filter((b) => b.isEarned).length;
+  const totalCount  = displayBadges.length;
   const { logout } = useAuth(); 
   
   const [settings, setSettings] = React.useState(SETTINGS);
@@ -152,7 +154,7 @@ export default function ProfileScreen({ navigation }) {
           <View style={{ flex: 1 }}>
             <Text style={styles.setBadgesTitle}>Your badges</Text>
             <Text style={styles.setBadgesSub}>
-              9 of 12 earned · 3 in progress
+              {earnedCount} of {totalCount} earned
             </Text>
           </View>
           <ChevronRight size={16} color={colors.gold} strokeWidth={2.4} />

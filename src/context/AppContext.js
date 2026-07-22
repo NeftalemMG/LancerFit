@@ -5,6 +5,7 @@ import React, {
   useState,
   useCallback,
   useEffect,
+  useMemo,
 } from "react";
 import { Animated, Easing } from "react-native";
 import { initialState, initialQuests, CHALLENGES } from "../data/appData";
@@ -15,6 +16,7 @@ import {
 } from "../services/challengeApi";
 import { fetchDailyQuests } from "../services/questApi";
 import { fetchMe } from "../services/userApi";
+import { fetchMyBadges, fetchAllBadges } from "../services/badgeApi";
 import { useRealtime } from "../services/realtime";
 import { useAuth } from "./AuthContext";
 import { FACULTY_KEY_BY_VALUE } from "../data/authOptions";
@@ -89,6 +91,25 @@ export function AppProvider({ children }) {
   const [joinedChals, setJoinedChals] = useState({});
   const [challengeStatus, setChallengeStatus] = useState({}); // { [id]: 'pending'|'submitted'|'approved'|'rejected' }
   const [levelUp, setLevelUp] = useState(null);
+  const [myBadges, setMyBadges] = useState([]);
+  const [allBadges, setAllBadges] = useState([]);
+
+  const displayBadges = useMemo(() => {
+    const earnedMap = {};
+    myBadges.forEach((b) => { earnedMap[b.badgeId] = b; });
+    const merged = allBadges
+      .filter((b) => !b.secret || earnedMap[b.badgeId])
+      .map((b) => {
+        const earned = earnedMap[b.badgeId];
+        return earned
+          ? { ...b, isEarned: true, earnedAt: earned.earnedAt }
+          : { ...b, isEarned: false };
+      });
+    return [
+      ...merged.filter((b) => b.isEarned),
+      ...merged.filter((b) => !b.isEarned),
+    ];
+  }, [myBadges, allBadges]);
 
   // ---- Live user profile from /user/me ----
   const refreshMe = useCallback(async () => {
@@ -192,6 +213,24 @@ export function AppProvider({ children }) {
 
   useEffect(() => { loadQuests(); }, [loadQuests]);
 
+  const loadAllBadges = useCallback(async () => {
+    try {
+      const badges = await fetchAllBadges();
+      if (Array.isArray(badges)) setAllBadges(badges);
+    } catch { /* offline: keep empty */ }
+  }, []);
+
+  const loadMyBadges = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const badges = await fetchMyBadges();
+      if (Array.isArray(badges)) setMyBadges(badges);
+    } catch { /* offline: keep empty */ }
+  }, [isAuthenticated]);
+
+  useEffect(() => { loadAllBadges(); }, [loadAllBadges]);
+  useEffect(() => { if (isAuthenticated) loadMyBadges(); }, [isAuthenticated, loadMyBadges]);
+
   // ---- Realtime ----
   useRealtime(
     "challenge:created",
@@ -252,9 +291,20 @@ export function AppProvider({ children }) {
 
   useRealtime(
     "exercise:logged",
-    useCallback(() => {
+    useCallback(async () => {
       refreshMe();
-    }, [refreshMe]),
+      // Diff earned badges before/after to surface any newly awarded ones.
+      const prevIds = new Set(myBadges.map((b) => b.badgeId));
+      try {
+        const fresh = await fetchMyBadges();
+        if (Array.isArray(fresh)) {
+          setMyBadges(fresh);
+          fresh
+            .filter((b) => !prevIds.has(b.badgeId))
+            .forEach((b) => toast(`New badge: ${b.name}`));
+        }
+      } catch { /* offline */ }
+    }, [refreshMe, myBadges, toast]),
   );
 
   // ---- Toast ----
@@ -482,9 +532,11 @@ export function AppProvider({ children }) {
     joinTower,
     markChallengeSubmitted,
     reloadChallenges: loadChallenges,
-    reloadQuests:loadQuests,
+    reloadQuests: loadQuests,
     reloadMyChallenges: loadMyChallenges,
     refreshMe,
+    displayBadges,
+    loadMyBadges,
     levelUp,
     clearLevelUp: () => setLevelUp(null),
     addXP,
