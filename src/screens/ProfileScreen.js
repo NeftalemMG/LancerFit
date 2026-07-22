@@ -16,13 +16,12 @@ import {
   ChevronRight,
   ShieldCheckIcon,
 } from "../components/icons";
-
-const SETTINGS = [
-  { ic: "bell", label: "Quest reminders", type: "toggle", on: true },
-  { ic: "pin", label: "Auto check-in at Toldo", type: "toggle", on: true },
-  { ic: "shield", label: "Privacy & data (FIPPA)", type: "link" },
-  { ic: "out", label: "Sign out", type: "link" },
-];
+import {
+  getSettings,
+  loadSettings,
+  setSetting,
+  subscribe,
+} from "../services/settingsStore";
 
 function Toggle({ on }) {
   return (
@@ -36,7 +35,23 @@ export default function ProfileScreen({ navigation }) {
   const { player, toast } = useApp();
   const { logout } = useAuth(); 
   
-  const [settings, setSettings] = React.useState(SETTINGS);
+  // Live, persisted settings — toggling actually gates notifications /
+  // auto check-in (settingsStore + realtime + useGymProximity).
+  const [prefs, setPrefs] = React.useState(getSettings());
+  React.useEffect(() => {
+    loadSettings().then(setPrefs);
+    return subscribe(setPrefs);
+  }, []);
+
+  const settings = React.useMemo(
+    () => [
+      { key: "questReminders", ic: "bell", label: "Quest reminders", type: "toggle", on: prefs.questReminders },
+      { key: "autoCheckin", ic: "pin", label: "Auto check-in at Toldo", type: "toggle", on: prefs.autoCheckin },
+      { ic: "shield", label: "Privacy & data (FIPPA)", type: "link" },
+      { ic: "out", label: "Sign out", type: "link" },
+    ],
+    [prefs],
+  );
 
   const level = player.level ?? 1;
   const xp = player.xp ?? 0;
@@ -53,8 +68,7 @@ export default function ProfileScreen({ navigation }) {
   const onRow = (i) => {
     const s = settings[i];
     if (s.type === "toggle") {
-      const next = settings.map((x, j) => (j === i ? { ...x, on: !x.on } : x));
-      setSettings(next);
+      setSetting(s.key, !s.on); // persist + gate real behavior
       toast(s.label + (!s.on ? " on" : " off"));
     } else if (s.label === "Sign out") {
       logout?.(); // Cleans out auth context state tokens natively across entire app
@@ -153,6 +167,25 @@ export default function ProfileScreen({ navigation }) {
             <Text style={styles.setBadgesTitle}>Your badges</Text>
             <Text style={styles.setBadgesSub}>
               9 of 12 earned · 3 in progress
+            </Text>
+          </View>
+          <ChevronRight size={16} color={colors.gold} strokeWidth={2.4} />
+        </View>
+      </PressScale>
+
+      {/* avatar journey link */}
+      <PressScale
+        onPress={() => navigation.navigate("avatarJourney")}
+        style={{ marginBottom: 9 }}
+      >
+        <View style={styles.setBadges}>
+          <View style={[styles.setBadgesIc, { borderColor: facultyColor }]}>
+            <FacultyAvatar facultyKey={facultyKey} level={level} size={30} goldBg />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.setBadgesTitle}>Avatar journey</Text>
+            <Text style={styles.setBadgesSub}>
+              {tierName(level)} · Lv {level} · climb the castle
             </Text>
           </View>
           <ChevronRight size={16} color={colors.gold} strokeWidth={2.4} />
