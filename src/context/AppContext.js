@@ -8,7 +8,6 @@ import React, {
   useMemo,
 } from "react";
 import { Animated, Easing } from "react-native";
-import { initialState, initialQuests, CHALLENGES } from "../data/appData";
 import {
   fetchActiveChallenges,
   fetchMyChallenges,
@@ -55,7 +54,7 @@ function toAppChallenge(c) {
 function toAppQuest(q) {
   return {
     id: q.questId ?? q.id,
-    icon: q.icon || 'star',
+    icon: 'bolt',
     title: q.title,
     sub: q.category || '',
     cur: 0,
@@ -81,13 +80,9 @@ function statusFromParticipation(p) {
 
 export function AppProvider({ children }) {
   const { isAuthenticated, user: authUser } = useAuth();
-  const [player, setPlayer] = useState({ ...initialState });
-  const [quests, setQuests] = useState(() =>
-    initialQuests.map((q) => ({ ...q })),
-  );
-  const [challenges, setChallenges] = useState(() =>
-    CHALLENGES.map((c) => ({ ...c })),
-  );
+  const [player, setPlayer] = useState({});
+  const [quests, setQuests] = useState([]);
+  const [challenges, setChallenges] = useState([]);
   const [joinedChals, setJoinedChals] = useState({});
   const [challengeStatus, setChallengeStatus] = useState({}); // { [id]: 'pending'|'submitted'|'approved'|'rejected' }
   const [levelUp, setLevelUp] = useState(null);
@@ -121,6 +116,7 @@ export function AppProvider({ children }) {
         facultyKey: FACULTY_KEY_BY_VALUE[authUser.faculty] || p.facultyKey,
         facultyLabel: authUser.faculty || p.facultyLabel,
         flagCode: authUser.nationality || p.flagCode,
+        totalXp: authUser.totalXp || 0
       }));
     }
     try {
@@ -307,6 +303,20 @@ export function AppProvider({ children }) {
     }, [refreshMe, myBadges, toast]),
   );
 
+  useRealtime(
+    "quests:updated",
+    useCallback(()=>{
+      loadQuests();
+    },[loadQuests])
+  )
+
+  useRealtime(
+    "quests:pointsgranted",
+    useCallback(()=>{
+      refreshMe()
+    },[refreshMe])
+  )
+
   // ---- Toast ----
   const [toastMsg, setToastMsg] = useState("");
   const toastY = useRef(new Animated.Value(16)).current;
@@ -445,29 +455,6 @@ export function AppProvider({ children }) {
     [addXP, toast],
   );
 
-  // ---- Featured Tower Challenge join (mock, unchanged) ----
-  const joinTower = useCallback(() => {
-    if (player.joinedTower) {
-      toast("You're already in the climb");
-      return;
-    }
-    setPlayer((p) => ({ ...p, joinedTower: true }));
-    setQuests((qs) => [
-      {
-        id: "tower-q",
-        icon: "flag",
-        title: "Tower Challenge",
-        sub: "Climb 50 floors at Toldo",
-        cur: 0,
-        max: 50,
-        xp: 500,
-        gold: true,
-      },
-      ...qs,
-    ]);
-    toast("Tower Challenge joined");
-  }, [player.joinedTower, toast]);
-
   // ---- Challenge join — calls the backend for live challenges ----
   const joinChallenge = useCallback(
     async (c) => {
@@ -529,7 +516,6 @@ export function AppProvider({ children }) {
     joinedChals,
     challengeStatus,
     joinChallenge,
-    joinTower,
     markChallengeSubmitted,
     reloadChallenges: loadChallenges,
     reloadQuests: loadQuests,

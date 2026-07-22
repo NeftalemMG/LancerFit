@@ -25,6 +25,7 @@ export function AuthProvider({ children }) {
     (async () => {
       try {
         const stored = await loadAuth();
+        console.log("stored",stored)
         if (stored?.user) {
           setUser(stored.user);
           await connectRealtime();

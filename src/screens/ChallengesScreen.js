@@ -192,7 +192,11 @@ export default function ChallengesScreen() {
 }
 
 const styles = StyleSheet.create({
-  glassHeader: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6 },
+  // NOTE: this header lives INSIDE the ScrollView, which already applies
+  // paddingHorizontal: 20 via `scroll`. Adding horizontal padding here too
+  // double-indented the "Challenges" title (40px) versus every other screen
+  // (20px). Vertical padding only — horizontal comes from `scroll`.
+  glassHeader: { paddingTop: 14, paddingBottom: 6 },
   scroll: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 124 },
 
   featured: {
