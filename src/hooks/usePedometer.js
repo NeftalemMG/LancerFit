@@ -1,25 +1,22 @@
-// Live step count for TODAY plus a real 7-day daily history, working on both
-// iOS and Android via expo-sensors' Pedometer (CoreMotion on iOS, the
-// step-counter sensor on Android).
+// Live step count for TODAY plus a real 7-day daily history.
+//   iOS      -> expo-sensors Pedometer (reads Apple Health / CoreMotion directly)
+//   Android  -> react-native-health-connect (reads Google Health Connect, which
+//               itself aggregates Google Fit / Samsung Health / OEM sensors)
+//
+// This requires a custom dev client on Android — Health Connect needs native
+// modules and will NOT work inside Expo Go.
 //
 // Exposes:
 //   { steps, weekVals, weekSteps, todayIndex, available, permission, isIOS }
-//   - steps      : today's cumulative step count (live)
-//   - weekSteps  : number[7] real per-day step totals, Mon-first
-//   - weekVals   : number[7] normalized 0..1 for bar heights (weekSteps / max)
-//   - todayIndex : 0..6 index of today within the Mon-first week
-//   - available  : pedometer present AND (where required) permission granted
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Platform } from "react-native";
 
-// Monday-first index for a JS Date (getDay(): 0=Sun..6=Sat -> 0=Mon..6=Sun).
 function mondayFirstIndex(date) {
   const d = date.getDay();
   return d === 0 ? 6 : d - 1;
 }
 
-// Start-of-day for the Monday that begins `date`'s week.
 function startOfWeek(date) {
   const s = new Date(date);
   s.setHours(0, 0, 0, 0);
@@ -33,15 +30,13 @@ export function usePedometer() {
   const [available, setAvailable] = useState(false);
   const [permission, setPermission] = useState("undetermined");
 
-  const baseTodayRef = useRef(0); // today's steps counted before the watch began
+  const baseTodayRef = useRef(0);
   const subRef = useRef(null);
   const mountedRef = useRef(true);
   const todayIndex = mondayFirstIndex(new Date());
 
-  // Read a real per-day history for the current week (Mon..Sun). Historical
-  // queries are supported on iOS; on Android getStepCountAsync typically throws,
-  // so those days stay 0 and only "today" is populated (live via the watch).
-  const loadWeekHistory = useCallback(async (Pedometer) => {
+  // ---------- iOS: expo-sensors / CoreMotion (unchanged from before) ----------
+  const loadWeekHistoryIOS = useCallback(async (Pedometer) => {
     const weekStart = startOfWeek(new Date());
     const now = new Date();
     const next = [0, 0, 0, 0, 0, 0, 0];
@@ -59,7 +54,7 @@ export function usePedometer() {
           if (i === todayIndex) baseTodayRef.current = res.steps;
         }
       } catch {
-        // No historical query on this platform for this day; leave as 0.
+        // leave as 0
       }
     }
     if (mountedRef.current) {
@@ -68,74 +63,160 @@ export function usePedometer() {
     }
   }, [todayIndex]);
 
-  useEffect(() => {
-    mountedRef.current = true;
+  const setupIOS = useCallback(async () => {
     let Pedometer;
     try {
-      // Lazy require so the app doesn't crash if the package isn't installed.
       Pedometer = require("expo-sensors").Pedometer;
     } catch {
-      return () => { mountedRef.current = false; };
+      setAvailable(false);
+      return;
     }
 
-    (async () => {
-      try {
-        const isAvail = await Pedometer.isAvailableAsync();
-        if (!mountedRef.current) return;
-        if (!isAvail) { setAvailable(false); return; }
+    const isAvail = await Pedometer.isAvailableAsync();
+    if (!mountedRef.current) return;
+    if (!isAvail) { setAvailable(false); return; }
 
-        // Permission gate. On Android this triggers the ACTIVITY_RECOGNITION
-        // prompt; iOS prompts on first data read. We must not start the watch
-        // unless we're actually allowed to read, or Android emits nothing.
-        let granted = true;
+    setPermission("granted"); // iOS prompts implicitly on first read
+    setAvailable(true);
+
+    await loadWeekHistoryIOS(Pedometer);
+
+    subRef.current = Pedometer.watchStepCount((r) => {
+      if (!mountedRef.current) return;
+      const liveToday = baseTodayRef.current + (r?.steps || 0);
+      setSteps(liveToday);
+      setWeekSteps((prev) => {
+        if (prev[todayIndex] === liveToday) return prev;
+        const copy = prev.slice();
+        copy[todayIndex] = liveToday;
+        return copy;
+      });
+    });
+  }, [loadWeekHistoryIOS, todayIndex]);
+
+  // ---------- Android: Health Connect ----------
+  const setupAndroid = useCallback(async () => {
+    let HC;
+    try {
+      HC = require("react-native-health-connect");
+    } catch {
+      // Not present, e.g. still running inside Expo Go.
+      setAvailable(false);
+      setPermission("unavailable");
+      return;
+    }
+    const { initialize, requestPermission, readRecords, getSdkStatus, SdkAvailabilityStatus } = HC;
+
+    try {
+      const status = await getSdkStatus?.();
+      if (status !== undefined && SdkAvailabilityStatus &&
+          status !== SdkAvailabilityStatus.SDK_AVAILABLE) {
+        // Health Connect app not installed / not supported on this device.
+        setAvailable(false);
+        setPermission("unavailable");
+        return;
+      }
+
+      const ok = await initialize();
+      if (!ok) { setAvailable(false); return; }
+
+      const granted = await requestPermission([
+        { accessType: "read", recordType: "Steps" },
+      ]);
+      const hasStepsRead = Array.isArray(granted) &&
+        granted.some((p) => p.recordType === "Steps" && p.accessType === "read");
+
+      if (!hasStepsRead) {
+        setPermission("denied");
+        setAvailable(false);
+        return;
+      }
+      setPermission("granted");
+      setAvailable(true);
+
+      const weekStart = startOfWeek(new Date());
+      const now = new Date();
+      const next = [0, 0, 0, 0, 0, 0, 0];
+
+      for (let i = 0; i <= todayIndex; i += 1) {
+        const dayStart = new Date(weekStart);
+        dayStart.setDate(weekStart.getDate() + i);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setDate(dayStart.getDate() + 1);
+        const rangeEnd = dayEnd > now ? now : dayEnd;
+
         try {
-          const perm = await Pedometer.requestPermissionsAsync?.();
-          if (perm) {
-            setPermission(perm.status || "granted");
-            // On Android an explicit denial means no data will ever arrive.
-            if (Platform.OS === "android" && perm.status && perm.status !== "granted") {
-              granted = perm.granted === true || perm.status === "granted";
-            }
-          } else {
-            setPermission("granted"); // SDK without the API -> assume iOS-style
-          }
+          const result = await readRecords("Steps", {
+            timeRangeFilter: {
+              operator: "between",
+              startTime: dayStart.toISOString(),
+              endTime: rangeEnd.toISOString(),
+            },
+          });
+          const total = (result?.records || []).reduce(
+            (sum, rec) => sum + (rec.count || 0), 0
+          );
+          next[i] = total;
+          if (i === todayIndex) baseTodayRef.current = total;
         } catch {
-          // Some SDK builds don't expose requestPermissionsAsync; iOS is fine
-          // without it. On Android, proceed and let the read attempt decide.
-          setPermission("granted");
+          // leave as 0 for that day
         }
+      }
 
+      if (mountedRef.current) {
+        setWeekSteps(next);
+        setSteps(next[todayIndex] || 0);
+      }
+
+      // Health Connect has no live "watch" API — poll periodically instead
+      // so today's ring/bar stays close to real-time while the app is open.
+      const poll = setInterval(async () => {
         if (!mountedRef.current) return;
-        setAvailable(granted);
-        if (!granted) return;
-
-        // Real per-day history for the week (populates today's base too).
-        await loadWeekHistory(Pedometer);
-
-        // Live increments from now on. watchStepCount reports steps since the
-        // subscription began, so add them onto today's already-counted base and
-        // keep today's bar in sync.
-        subRef.current = Pedometer.watchStepCount((r) => {
-          if (!mountedRef.current) return;
-          const liveToday = baseTodayRef.current + (r?.steps || 0);
-          setSteps(liveToday);
+        try {
+          const dayStart = new Date();
+          dayStart.setHours(0, 0, 0, 0);
+          const result = await readRecords("Steps", {
+            timeRangeFilter: {
+              operator: "between",
+              startTime: dayStart.toISOString(),
+              endTime: new Date().toISOString(),
+            },
+          });
+          const total = (result?.records || []).reduce(
+            (sum, rec) => sum + (rec.count || 0), 0
+          );
+          setSteps(total);
           setWeekSteps((prev) => {
-            if (prev[todayIndex] === liveToday) return prev;
+            if (prev[todayIndex] === total) return prev;
             const copy = prev.slice();
-            copy[todayIndex] = liveToday;
+            copy[todayIndex] = total;
             return copy;
           });
-        });
-      } catch {
-        if (mountedRef.current) setAvailable(false);
-      }
-    })();
+        } catch {
+          // ignore transient poll failures
+        }
+      }, 30000); // every 30s — Health Connect writes aren't instant anyway
+
+      subRef.current = { remove: () => clearInterval(poll) };
+    } catch {
+      if (mountedRef.current) setAvailable(false);
+    }
+  }, [todayIndex]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    if (Platform.OS === "ios") {
+      setupIOS();
+    } else if (Platform.OS === "android") {
+      setupAndroid();
+    }
 
     return () => {
       mountedRef.current = false;
       try { subRef.current?.remove?.(); } catch { /* noop */ }
     };
-  }, [loadWeekHistory, todayIndex]);
+  }, [setupIOS, setupAndroid]);
 
   const maxWeek = Math.max(1, ...weekSteps);
   const weekVals = weekSteps.map((v) => (v > 0 ? v / maxWeek : 0));
