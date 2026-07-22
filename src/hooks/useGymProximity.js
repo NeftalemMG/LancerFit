@@ -11,7 +11,16 @@ import { useState, useEffect, useRef } from "react";
 
 // Raise a single "you're at the gym" banner when the user first enters range.
 // Guarded so a missing notifications package never breaks proximity tracking.
+function autoCheckinOn() {
+  try {
+    return require("../services/settingsStore").getSetting("autoCheckin") !== false;
+  } catch {
+    return true; // default on if the store isn't available
+  }
+}
+
 function presentCheckinPrompt() {
+  if (!autoCheckinOn()) return; // gated by the user's Auto check-in setting
   try {
     const Notifications = require("expo-notifications");
     Notifications.scheduleNotificationAsync({

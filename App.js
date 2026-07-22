@@ -37,6 +37,7 @@ import AppShell from "./src/components/AppShell";
 import { colors } from "./src/theme/tokens";
 import { usePushNotifications } from "./src/hooks/usePushNotifications";
 import { setStoredPushToken } from "./src/services/pushTokenStore";
+import { loadSettings } from "./src/services/settingsStore";
 
 // Keep the native splash visible while we load fonts.
 SplashScreen.preventAutoHideAsync().catch(() => {});

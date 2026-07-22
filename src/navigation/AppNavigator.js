@@ -9,6 +9,7 @@ import LeaderboardScreen from "../screens/LeaderboardScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import StatsScreen from "../screens/StatsScreen";
 import ExerciseStatsScreen from "../screens/ExerciseStatsScreen";
+import AvatarJourneyScreen from "../screens/AvatarJourneyScreen";
 import TabBar from "../components/TabBar";
 import { colors } from "../theme/tokens";
 
@@ -43,6 +44,7 @@ export default function AppNavigator() {
       <Stack.Screen name="Badges" component={BadgesScreen} />
       <Stack.Screen name="Stats" component={StatsScreen} />
       <Stack.Screen name="ExerciseStats" component={ExerciseStatsScreen} />
+      <Stack.Screen name="avatarJourney" component={AvatarJourneyScreen} />
     </Stack.Navigator>
   );
 }
