@@ -38,16 +38,30 @@ export default function HomeStatsWidget({ navigation }) {
     const keys = await loadPinned();
     if (!keys || keys.length === 0) { setTiles([]); setLoaded(true); return; }
     try {
-      const results = await Promise.all(
+      // Each pinned exercise is fetched INDEPENDENTLY. Previously this used
+      // Promise.all inside a try/catch that did setTiles([]) — so a single
+      // failing request (offline blip, one exercise with no data yet, a 500)
+      // rejected the whole batch and blanked every pinned tile, even though the
+      // pins were still saved in AsyncStorage. That's why pins "disappeared"
+      // from Home but reappeared after re-pinning. allSettled keeps the tiles
+      // that succeeded and simply drops the ones that failed.
+      const settled = await Promise.allSettled(
         keys.map(async (key) => {
           const s = await fetchExerciseStats(key, "week");
           const total = s.unit === "min" ? s.totals.totalDuration : s.totals.totalQuantity;
           return { exerciseKey: key, exerciseName: s.exerciseName, unit: s.unit, total };
         }),
       );
-      setTiles(results);
+      const results = settled
+        .filter((r) => r.status === "fulfilled" && r.value)
+        .map((r) => r.value);
+
+      // Only replace the visible tiles when we actually resolved something.
+      // If every request failed (e.g. the phone is briefly offline), keep what
+      // is already on screen rather than flashing an empty state.
+      setTiles((prev) => (results.length > 0 ? results : prev));
     } catch {
-      setTiles([]);
+      // Never wipe the row on an unexpected error — keep the last good tiles.
     } finally {
       setLoaded(true);
     }
