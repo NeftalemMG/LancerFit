@@ -5,6 +5,7 @@ import React, {
   useState,
   useCallback,
   useEffect,
+  useMemo,
 } from "react";
 import { Animated, Easing } from "react-native";
 import {
@@ -14,6 +15,7 @@ import {
 } from "../services/challengeApi";
 import { fetchDailyQuests } from "../services/questApi";
 import { fetchMe } from "../services/userApi";
+import { fetchMyBadges, fetchAllBadges } from "../services/badgeApi";
 import { useRealtime } from "../services/realtime";
 import { useAuth } from "./AuthContext";
 import { FACULTY_KEY_BY_VALUE } from "../data/authOptions";
@@ -84,6 +86,33 @@ export function AppProvider({ children }) {
   const [joinedChals, setJoinedChals] = useState({});
   const [challengeStatus, setChallengeStatus] = useState({}); // { [id]: 'pending'|'submitted'|'approved'|'rejected' }
   const [levelUp, setLevelUp] = useState(null);
+  const [myBadges, setMyBadges] = useState([]);
+  const [allBadges, setAllBadges] = useState([]);
+  const [badgeQueue, setBadgeQueue] = useState([]); // newly-awarded badges awaiting celebration
+
+  // Refs so realtime handlers can diff against the latest badges without
+  // re-subscribing on every change.
+  const myBadgesRef = useRef([]);
+  const allBadgesRef = useRef([]);
+  useEffect(() => { myBadgesRef.current = myBadges; }, [myBadges]);
+  useEffect(() => { allBadgesRef.current = allBadges; }, [allBadges]);
+
+  const displayBadges = useMemo(() => {
+    const earnedMap = {};
+    myBadges.forEach((b) => { earnedMap[b.badgeId] = b; });
+    const merged = allBadges
+      .filter((b) => !b.secret || earnedMap[b.badgeId])
+      .map((b) => {
+        const earned = earnedMap[b.badgeId];
+        return earned
+          ? { ...b, isEarned: true, earnedAt: earned.earnedAt }
+          : { ...b, isEarned: false };
+      });
+    return [
+      ...merged.filter((b) => b.isEarned),
+      ...merged.filter((b) => !b.isEarned),
+    ];
+  }, [myBadges, allBadges]);
 
   // ---- Live user profile from /user/me ----
   const refreshMe = useCallback(async () => {
@@ -188,6 +217,50 @@ export function AppProvider({ children }) {
 
   useEffect(() => { loadQuests(); }, [loadQuests]);
 
+  const loadAllBadges = useCallback(async () => {
+    try {
+      const badges = await fetchAllBadges();
+      if (Array.isArray(badges)) setAllBadges(badges);
+    } catch { /* offline: keep empty */ }
+  }, []);
+
+  const loadMyBadges = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const badges = await fetchMyBadges();
+      if (Array.isArray(badges)) setMyBadges(badges);
+    } catch { /* offline: keep empty */ }
+  }, [isAuthenticated]);
+
+  // Re-fetch earned badges and celebrate any that are newly awarded. Uses refs
+  // for the diff so it stays stable across renders (safe in realtime handlers).
+  const refreshBadges = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const fresh = await fetchMyBadges();
+      if (!Array.isArray(fresh)) return;
+      const prevIds = new Set(myBadgesRef.current.map((b) => b.badgeId));
+      setMyBadges(fresh);
+      const newly = fresh.filter((b) => !prevIds.has(b.badgeId));
+      if (newly.length) {
+        const catalog = {};
+        allBadgesRef.current.forEach((c) => { catalog[c.badgeId] = c; });
+        // Catalog holds the authoritative metadata (name, xp, description, type,
+        // meta, image); take only earnedAt from the earned record — same shape
+        // displayBadges produces, so the modal renders identically.
+        const awards = newly.map((b) => ({
+          ...(catalog[b.badgeId] || b),
+          isEarned: true,
+          earnedAt: b.earnedAt,
+        }));
+        setBadgeQueue((q) => [...q, ...awards]);
+      }
+    } catch { /* offline */ }
+  }, [isAuthenticated]);
+
+  useEffect(() => { loadAllBadges(); }, [loadAllBadges]);
+  useEffect(() => { if (isAuthenticated) loadMyBadges(); }, [isAuthenticated, loadMyBadges]);
+
   // ---- Realtime ----
   useRealtime(
     "challenge:created",
@@ -238,19 +311,23 @@ export function AppProvider({ children }) {
         if (payload.status === "approved") {
           toast(`Result approved · +${payload.pointsAwarded ?? 0} XP`);
           refreshMe();
+          refreshBadges(); // challenge-position badges may have been awarded
         } else if (payload.status === "rejected") {
           toast("A challenge result was declined");
         }
       },
-      [refreshMe],
+      [refreshMe, refreshBadges],
     ),
   );
 
   useRealtime(
     "exercise:logged",
-    useCallback(() => {
+    useCallback(async () => {
       refreshMe();
-    }, [refreshMe]),
+      // Re-fetch earned badges; any newly awarded ones are queued for the
+      // celebration modal (see badgeAward on the context value).
+      refreshBadges();
+    }, [refreshMe, refreshBadges]),
   );
 
   useRealtime(
@@ -264,7 +341,8 @@ export function AppProvider({ children }) {
     "quests:pointsgranted",
     useCallback(()=>{
       refreshMe()
-    },[refreshMe])
+      refreshBadges() // quest_frequency / quest_streak badges may have been awarded
+    },[refreshMe, refreshBadges])
   )
 
   // ---- Toast ----
@@ -468,9 +546,13 @@ export function AppProvider({ children }) {
     joinChallenge,
     markChallengeSubmitted,
     reloadChallenges: loadChallenges,
-    reloadQuests:loadQuests,
+    reloadQuests: loadQuests,
     reloadMyChallenges: loadMyChallenges,
     refreshMe,
+    displayBadges,
+    loadMyBadges,
+    badgeAward: badgeQueue[0] || null,
+    clearBadgeAward: () => setBadgeQueue((q) => q.slice(1)),
     levelUp,
     clearLevelUp: () => setLevelUp(null),
     addXP,
