@@ -31,6 +31,7 @@ import { AREAS, DURATIONS } from "../data/activityData";
 import { imageForActivity } from "../data/activityImages";
 import { CheckIcon } from "../components/icons";
 import { logExercise } from "../services/statsApi";
+import { fetchCatalog } from "../services/catalogApi";
 import {
   fetchCustomActivities,
   createCustomActivity,
@@ -91,6 +92,17 @@ function CustomChip({ item, selected, onPress, onLongPress }) {
 
 export default function LogScreen({ navigation }) {
   const { toast, refreshMe } = useApp();
+
+  // Catalog comes from the backend (single source of truth) so logged
+  // exerciseKey/areaKey always match the catalog and badges resolve. Starts
+  // from the bundled AREAS so the grid renders instantly, then upgrades to the
+  // fetched catalog; keeps the bundled copy if the fetch fails (no regression).
+  const [areas, setAreas] = useState(AREAS);
+  useEffect(() => {
+    fetchCatalog()
+      .then((c) => { if (Array.isArray(c) && c.length) setAreas(c); })
+      .catch(() => { /* keep bundled fallback */ });
+  }, []);
 
   const [area, setArea] = useState(null);
   const [sub, setSub] = useState(null);
@@ -277,7 +289,7 @@ export default function LogScreen({ navigation }) {
         </View>
 
         {/* Catalog areas — strict 2-col grid, uniform tiles */}
-        {AREAS.map((a) => (
+        {areas.map((a) => (
           <View key={a.id} style={styles.areaBlock}>
             <Text style={styles.areaName}>{a.name}</Text>
             <View style={styles.grid}>

@@ -5,9 +5,9 @@ import React, {
   useState,
   useCallback,
   useEffect,
+  useMemo,
 } from "react";
 import { Animated, Easing } from "react-native";
-import { initialState, initialQuests, CHALLENGES } from "../data/appData";
 import {
   fetchActiveChallenges,
   fetchMyChallenges,
@@ -15,6 +15,7 @@ import {
 } from "../services/challengeApi";
 import { fetchDailyQuests } from "../services/questApi";
 import { fetchMe } from "../services/userApi";
+import { fetchMyBadges, fetchAllBadges } from "../services/badgeApi";
 import { useRealtime } from "../services/realtime";
 import { useAuth } from "./AuthContext";
 import { FACULTY_KEY_BY_VALUE } from "../data/authOptions";
@@ -53,7 +54,7 @@ function toAppChallenge(c) {
 function toAppQuest(q) {
   return {
     id: q.questId ?? q.id,
-    icon: q.icon || 'star',
+    icon: 'bolt',
     title: q.title,
     sub: q.category || '',
     cur: 0,
@@ -79,45 +80,39 @@ function statusFromParticipation(p) {
 
 export function AppProvider({ children }) {
   const { isAuthenticated, user: authUser } = useAuth();
-  const [player, setPlayer] = useState({ ...initialState });
-  const [quests, setQuests] = useState(() =>
-    initialQuests.map((q) => ({ ...q })),
-  );
-  const [challenges, setChallenges] = useState(() =>
-    CHALLENGES.map((c) => ({ ...c })),
-  );
+  const [player, setPlayer] = useState({});
+  const [quests, setQuests] = useState([]);
+  const [challenges, setChallenges] = useState([]);
   const [joinedChals, setJoinedChals] = useState({});
-<<<<<<< HEAD
-  const [userBadges, setUserBadges] = useState(USER_BADGES);
-
-  const displayBadges = useMemo(() => {
-    const rowMap = {};
-    userBadges.forEach((ub) => { rowMap[ub.badgeID] = ub; });
-
-    const earnedIDs = new Set(
-      BADGES.filter((b) => (rowMap[b.id]?.progress ?? 0) >= b.completionCriteria).map((b) => b.id)
-    );
-
-    const blockedIDs = new Set();
-    BADGES.forEach((b) => {
-      if (earnedIDs.has(b.id)) b.excludes.forEach((id) => blockedIDs.add(id));
-    });
-
-    const enriched = BADGES.map((b) => {
-      const progress = rowMap[b.id]?.progress ?? 0;
-      const isComplete = progress >= b.completionCriteria;
-      return { ...b, progress, isComplete, isBlocked: blockedIDs.has(b.id), completedAt: rowMap[b.id]?.completedAt };
-    });
-
-    const visible = enriched.filter((b) => !b.isBlocked && (!b.secret || b.isComplete));
-    const complete = visible.filter((b) => b.isComplete);
-    const inProgress = visible.filter((b) => !b.isComplete && b.progress > 0);
-    const notStarted = visible.filter((b) => !b.isComplete && b.progress === 0);
-    return [...complete, ...inProgress, ...notStarted];
-  }, [userBadges]);
-=======
   const [challengeStatus, setChallengeStatus] = useState({}); // { [id]: 'pending'|'submitted'|'approved'|'rejected' }
   const [levelUp, setLevelUp] = useState(null);
+  const [myBadges, setMyBadges] = useState([]);
+  const [allBadges, setAllBadges] = useState([]);
+  const [badgeQueue, setBadgeQueue] = useState([]); // newly-awarded badges awaiting celebration
+
+  // Refs so realtime handlers can diff against the latest badges without
+  // re-subscribing on every change.
+  const myBadgesRef = useRef([]);
+  const allBadgesRef = useRef([]);
+  useEffect(() => { myBadgesRef.current = myBadges; }, [myBadges]);
+  useEffect(() => { allBadgesRef.current = allBadges; }, [allBadges]);
+
+  const displayBadges = useMemo(() => {
+    const earnedMap = {};
+    myBadges.forEach((b) => { earnedMap[b.badgeId] = b; });
+    const merged = allBadges
+      .filter((b) => !b.secret || earnedMap[b.badgeId])
+      .map((b) => {
+        const earned = earnedMap[b.badgeId];
+        return earned
+          ? { ...b, isEarned: true, earnedAt: earned.earnedAt }
+          : { ...b, isEarned: false };
+      });
+    return [
+      ...merged.filter((b) => b.isEarned),
+      ...merged.filter((b) => !b.isEarned),
+    ];
+  }, [myBadges, allBadges]);
 
   // ---- Live user profile from /user/me ----
   const refreshMe = useCallback(async () => {
@@ -129,6 +124,7 @@ export function AppProvider({ children }) {
         facultyKey: FACULTY_KEY_BY_VALUE[authUser.faculty] || p.facultyKey,
         facultyLabel: authUser.faculty || p.facultyLabel,
         flagCode: authUser.nationality || p.flagCode,
+        totalXp: authUser.totalXp || 0
       }));
     }
     try {
@@ -221,6 +217,50 @@ export function AppProvider({ children }) {
 
   useEffect(() => { loadQuests(); }, [loadQuests]);
 
+  const loadAllBadges = useCallback(async () => {
+    try {
+      const badges = await fetchAllBadges();
+      if (Array.isArray(badges)) setAllBadges(badges);
+    } catch { /* offline: keep empty */ }
+  }, []);
+
+  const loadMyBadges = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const badges = await fetchMyBadges();
+      if (Array.isArray(badges)) setMyBadges(badges);
+    } catch { /* offline: keep empty */ }
+  }, [isAuthenticated]);
+
+  // Re-fetch earned badges and celebrate any that are newly awarded. Uses refs
+  // for the diff so it stays stable across renders (safe in realtime handlers).
+  const refreshBadges = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const fresh = await fetchMyBadges();
+      if (!Array.isArray(fresh)) return;
+      const prevIds = new Set(myBadgesRef.current.map((b) => b.badgeId));
+      setMyBadges(fresh);
+      const newly = fresh.filter((b) => !prevIds.has(b.badgeId));
+      if (newly.length) {
+        const catalog = {};
+        allBadgesRef.current.forEach((c) => { catalog[c.badgeId] = c; });
+        // Catalog holds the authoritative metadata (name, xp, description, type,
+        // meta, image); take only earnedAt from the earned record — same shape
+        // displayBadges produces, so the modal renders identically.
+        const awards = newly.map((b) => ({
+          ...(catalog[b.badgeId] || b),
+          isEarned: true,
+          earnedAt: b.earnedAt,
+        }));
+        setBadgeQueue((q) => [...q, ...awards]);
+      }
+    } catch { /* offline */ }
+  }, [isAuthenticated]);
+
+  useEffect(() => { loadAllBadges(); }, [loadAllBadges]);
+  useEffect(() => { if (isAuthenticated) loadMyBadges(); }, [isAuthenticated, loadMyBadges]);
+
   // ---- Realtime ----
   useRealtime(
     "challenge:created",
@@ -271,21 +311,39 @@ export function AppProvider({ children }) {
         if (payload.status === "approved") {
           toast(`Result approved · +${payload.pointsAwarded ?? 0} XP`);
           refreshMe();
+          refreshBadges(); // challenge-position badges may have been awarded
         } else if (payload.status === "rejected") {
           toast("A challenge result was declined");
         }
       },
-      [refreshMe],
+      [refreshMe, refreshBadges],
     ),
   );
 
   useRealtime(
     "exercise:logged",
-    useCallback(() => {
+    useCallback(async () => {
       refreshMe();
-    }, [refreshMe]),
+      // Re-fetch earned badges; any newly awarded ones are queued for the
+      // celebration modal (see badgeAward on the context value).
+      refreshBadges();
+    }, [refreshMe, refreshBadges]),
   );
->>>>>>> main
+
+  useRealtime(
+    "quests:updated",
+    useCallback(()=>{
+      loadQuests();
+    },[loadQuests])
+  )
+
+  useRealtime(
+    "quests:pointsgranted",
+    useCallback(()=>{
+      refreshMe()
+      refreshBadges() // quest_frequency / quest_streak badges may have been awarded
+    },[refreshMe, refreshBadges])
+  )
 
   // ---- Toast ----
   const [toastMsg, setToastMsg] = useState("");
@@ -425,29 +483,6 @@ export function AppProvider({ children }) {
     [addXP, toast],
   );
 
-  // ---- Featured Tower Challenge join (mock, unchanged) ----
-  const joinTower = useCallback(() => {
-    if (player.joinedTower) {
-      toast("You're already in the climb");
-      return;
-    }
-    setPlayer((p) => ({ ...p, joinedTower: true }));
-    setQuests((qs) => [
-      {
-        id: "tower-q",
-        icon: "flag",
-        title: "Tower Challenge",
-        sub: "Climb 50 floors at Toldo",
-        cur: 0,
-        max: 50,
-        xp: 500,
-        gold: true,
-      },
-      ...qs,
-    ]);
-    toast("Tower Challenge joined");
-  }, [player.joinedTower, toast]);
-
   // ---- Challenge join — calls the backend for live challenges ----
   const joinChallenge = useCallback(
     async (c) => {
@@ -500,15 +535,6 @@ export function AppProvider({ children }) {
   );
 
   const value = {
-<<<<<<< HEAD
-    player, updatePlayer,
-    quests, bumpQuest, claimQuest,
-    challenges, joinedChals, joinChallenge, joinTower,
-    addXP, checkIn,
-    toast, toastMsg, toastY, toastOpacity,
-    sheet, openSheet, closeSheet,
-    displayBadges, userBadges, setUserBadges,
-=======
     player,
     updatePlayer,
     quests,
@@ -518,12 +544,15 @@ export function AppProvider({ children }) {
     joinedChals,
     challengeStatus,
     joinChallenge,
-    joinTower,
     markChallengeSubmitted,
     reloadChallenges: loadChallenges,
-    reloadQuests:loadQuests,
+    reloadQuests: loadQuests,
     reloadMyChallenges: loadMyChallenges,
     refreshMe,
+    displayBadges,
+    loadMyBadges,
+    badgeAward: badgeQueue[0] || null,
+    clearBadgeAward: () => setBadgeQueue((q) => q.slice(1)),
     levelUp,
     clearLevelUp: () => setLevelUp(null),
     addXP,
@@ -535,7 +564,6 @@ export function AppProvider({ children }) {
     sheet,
     openSheet,
     closeSheet,
->>>>>>> main
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

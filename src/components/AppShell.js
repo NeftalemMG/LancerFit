@@ -8,6 +8,7 @@ import { colors } from "../theme/tokens";
 import { useAuth } from "../context/AuthContext";
 import { useApp } from "../context/AppContext";
 import LevelUpModal from "./LevelUpModal";
+import BadgeAwardModal from "./BadgeAwardModal";
 
 import AuthNavigator from "../navigation/AuthNavigator";
 import AppNavigator from "../navigation/AppNavigator";
@@ -51,6 +52,7 @@ export default function AppShell() {
       <Toast />
       <Sheet />
       <GlobalLevelUp />
+      <GlobalBadgeAward />
     </View>
   );
 }
@@ -64,6 +66,19 @@ function GlobalLevelUp() {
       level={levelUp?.level}
       facultyKey={levelUp?.facultyKey}
       onClose={clearLevelUp}
+    />
+  );
+}
+
+// Bridges AppContext's badge-award queue to the celebration modal. Shows one
+// badge at a time; clearing advances to the next queued award.
+function GlobalBadgeAward() {
+  const { badgeAward, clearBadgeAward } = useApp();
+  return (
+    <BadgeAwardModal
+      visible={!!badgeAward}
+      award={badgeAward}
+      onClose={clearBadgeAward}
     />
   );
 }

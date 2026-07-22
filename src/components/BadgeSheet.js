@@ -5,11 +5,42 @@ import { colors } from '../theme/tokens';
 import { disp, body } from '../theme/typography';
 import Badge from './Badge';
 
+// Catalog exercise/area keys → friendly label. Keys match the backend catalog
+// (GET /api/area) which is the single source of truth; the raw key is used as a
+// fallback for anything not listed here.
+const KEY_LABEL = {
+  // Pool
+  fitlane: 'Fit Lanes', shallow: 'Shallow Aquafit', deep: 'Deep Water Aquafit',
+  leisure: 'Leisure Swim', rec: 'Rec Swim', lessons: 'Swim Lessons',
+  // Fitness Centre
+  cardio: 'Cardio', strength: 'Strength', flex: 'Flexibility & Stretch', boxing: 'Boxing',
+  // Group Fitness
+  spin: 'Spin', lancerlift: 'Lancer Lift', bootcamp: 'Bootcamp', kickbox: 'Kickboxing',
+  hyrox: 'HYROX', yoga: 'Yoga', zumba: 'Zumba', karate: 'Karate',
+  // Open Rec & Courts
+  pickleball: 'Pickleball', badminton: 'Badminton', tabletennis: 'Table Tennis',
+  volleyball: 'Volleyball', basketball: 'Basketball', track: 'Walking Track',
+  // Intramural Leagues
+  imbasket: 'Basketball', imvolley: 'Volleyball', soccer: 'Soccer', futsal: 'Futsal', flagfb: 'Flag Football',
+  // Areas
+  pool: 'Pool', fitness: 'Fitness', group: 'Group Fitness', courts: 'Courts', intramural: 'Intramural',
+};
+function targetLabel(meta) {
+  if (meta?.scope === 'any') return 'Any Exercise';
+  return KEY_LABEL[meta?.targetKey] ?? (meta?.targetKey ?? 'Exercise');
+}
+
 function typeLabel(b) {
   const { type, meta } = b;
   if (type === 'challenge_position') {
     const pos = meta?.position ? meta.position.charAt(0).toUpperCase() + meta.position.slice(1) : '';
     return `Challenge · ${pos} place`;
+  }
+  if (type === 'exercise_frequency') {
+    return `${targetLabel(meta)} · Frequency · Tier ${meta?.tier ?? ''}`;
+  }
+  if (type === 'exercise_streak') {
+    return `${targetLabel(meta)} · Streak · Tier ${meta?.tier ?? ''}`;
   }
   if (type === 'activity_frequency') {
     const scope = meta?.scope === 'any' ? 'Any Activity' : (meta?.category ?? 'Activity');
