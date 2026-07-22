@@ -22,12 +22,23 @@ function presentLocal(title, body, data) {
   }
 }
 
+// Read the user's live "quest reminders" preference. Lazy-required so this file
+// has no hard dependency on the store at import time.
+function questRemindersOn() {
+  try {
+    return require("./settingsStore").getSetting("questReminders") !== false;
+  } catch {
+    return true; // default on if the store isn't available
+  }
+}
+
 // Wire the standard app-level notification bridges onto a freshly connected
 // socket. Role-scoped rooms on the backend mean students only receive
 // challenge:created and admins only receive validation:submitted, so we can
 // bridge both here without leaking cross-role banners.
 function attachNotificationBridge(sock) {
   sock.on("challenge:created", (c) => {
+    if (!questRemindersOn()) return; // gated by the user's Quest reminders setting
     presentLocal(
       "New challenge dropped",
       `"${c?.title || "A new challenge"}" is live. Join and start banking XP.`,
