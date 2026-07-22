@@ -1,73 +1,27 @@
 import React from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  Pressable,
-  RefreshControl,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, ScrollView, StyleSheet, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius } from "../theme/tokens";
 import { disp, body } from "../theme/typography";
 import { useApp } from "../context/AppContext";
+import { BADGES } from "../data/appData";
 import Badge from "../components/Badge";
 import { Card, PressScale } from "../components/ui";
 import { ChevronLeft } from "../components/icons";
 import BadgeSheet from "../components/BadgeSheet";
 
-const SECTIONS = [
-  { key: "challenge", label: "Challenge Badges",   filter: (b) => b.type === "challenge_position" },
-  { key: "activity",  label: "Activity Badges",    filter: (b) => b.type?.startsWith("activity_") },
-  { key: "quest",     label: "Daily Quest Badges", filter: (b) => b.type?.startsWith("quest_") },
-  { key: "specialty", label: "Specialty",          filter: (b) => b.type === "specialty" },
-];
-
-function BadgeSection({ label, badges, openSheet }) {
-  if (!badges.length) return null;
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionLabel}>{label}</Text>
-      <View style={styles.grid}>
-        {badges.map((b) => (
-          <PressScale
-            key={b.badgeId}
-            onPress={() => openSheet(<BadgeSheet badge={b} />)}
-            wrapStyle={styles.cellWrap}
-          >
-            <Card style={[styles.cell, !b.isEarned && { opacity: 0.5 }]}>
-              <Badge badge={b} size={58} />
-              <Text
-                style={[styles.bn, !b.isEarned && { color: colors.text3 }]}
-                numberOfLines={2}
-                adjustsFontSizeToFit
-                minimumFontScale={0.85}
-              >
-                {b.name}
-              </Text>
-            </Card>
-          </PressScale>
-        ))}
-      </View>
-    </View>
-  );
-}
-
 export default function BadgesScreen({ navigation }) {
-  const { displayBadges, loadMyBadges, openSheet } = useApp();
+  const { openSheet } = useApp();
   const insets = useSafeAreaInsets();
-  const [refreshing, setRefreshing] = React.useState(false);
 
-  const earned = displayBadges.filter((b) => b.isEarned).length;
-  const total  = displayBadges.length;
-  const loading = total === 0;
-
-  const onRefresh = React.useCallback(async () => {
-    setRefreshing(true);
-    await loadMyBadges();
-    setRefreshing(false);
-  }, [loadMyBadges]);
+  const earned = BADGES.filter((b) => b.earned).length;
+  const total = BADGES.length;
+  const inProgress =
+    BADGES.filter((b) => !b.earned && b.progress).length ||
+    Math.max(
+      0,
+      total - earned - BADGES.filter((b) => !b.earned && !b.progress).length,
+    );
 
   return (
     <ScrollView
@@ -79,14 +33,8 @@ export default function BadgesScreen({ navigation }) {
         },
       ]}
       showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={colors.gold}
-        />
-      }
     >
+      {/* Gold text-only back button, consistent with the rest of the app. */}
       <Pressable
         onPress={() => navigation.goBack()}
         hitSlop={12}
@@ -101,6 +49,33 @@ export default function BadgesScreen({ navigation }) {
         <Text style={styles.sub}>
           Unlock milestones as you train. Tap any badge to see how it's earned.
         </Text>
+<<<<<<< HEAD
+      </View>
+
+      <View style={styles.grid}>
+        {displayBadges.map((b) => (
+          <View key={b.id} style={styles.cellWrap}>
+            <PressScale onPress={() => openSheet(<BadgeSheet badge={b} />)}>
+              <Card style={styles.cell}>
+                <Badge badge={b} size={62} />
+                {!b.isComplete && b.progress > 0 && (
+                  <View style={styles.barWrap}>
+                    <ProgressBar
+                      pct={(b.progress / b.completionCriteria) * 100}
+                      height={4}
+                      fillColor={badgeAccent(b.id)}
+                    />
+                  </View>
+                )}
+                <Text
+                  style={[styles.bn, !b.isComplete && { color: colors.text3 }]}
+                >
+                  {b.name}
+                </Text>
+              </Card>
+            </PressScale>
+          </View>
+=======
       </View>
 
       <View style={styles.bstats}>
@@ -112,27 +87,50 @@ export default function BadgesScreen({ navigation }) {
           <Text style={[styles.bstatV, { color: colors.blue2 }]}>{total}</Text>
           <Text style={styles.bstatK}>Total</Text>
         </Card>
+        <Card style={styles.bstat}>
+          <Text style={styles.bstatV}>{inProgress}</Text>
+          <Text style={styles.bstatK}>In progress</Text>
+        </Card>
       </View>
 
-      {loading ? (
-        <View style={styles.loader}>
-          <ActivityIndicator color={colors.gold} size="large" />
-        </View>
-      ) : (
-        SECTIONS.map((s) => (
-          <BadgeSection
-            key={s.key}
-            label={s.label}
-            badges={displayBadges.filter(s.filter)}
-            openSheet={openSheet}
-          />
-        ))
-      )}
+      <View style={styles.grid}>
+        {BADGES.map((b) => (
+          <PressScale
+            key={b.id}
+            onPress={() => openSheet(<BadgeSheet badge={b} />)}
+            wrapStyle={styles.cellWrap}
+          >
+            <Card style={[styles.cell, !b.earned && { opacity: 0.55 }]}>
+              <Badge badge={b} size={58} />
+              <Text
+                style={[styles.bn, !b.earned && { color: colors.text3 }]}
+                numberOfLines={2}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+              >
+                {b.name}
+              </Text>
+            </Card>
+          </PressScale>
+>>>>>>> main
+        ))}
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+<<<<<<< HEAD
+  scroll: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 124 },
+  backRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 8,
+    paddingBottom: 4,
+    marginBottom: 6,
+  },
+  backText: { fontFamily: disp.semibold, fontSize: 14, color: colors.text2 },
+=======
   scroll: { paddingHorizontal: 20 },
   backBtn: {
     flexDirection: "row",
@@ -142,30 +140,69 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     marginBottom: 8,
   },
-  backText: { fontFamily: disp.bold, fontSize: 15, color: colors.gold, letterSpacing: -0.2 },
-  h1: { fontFamily: disp.bold, fontSize: 27, letterSpacing: -0.5, color: colors.text },
-  sub: { marginTop: 7, color: colors.text2, fontSize: 14, lineHeight: 20, fontFamily: body.regular },
-
-  bstats: { flexDirection: "row", gap: 10, marginBottom: 6 },
-  bstat: { flex: 1, paddingVertical: 16, paddingHorizontal: 12, borderRadius: radius.md, alignItems: "center" },
-  bstatV: { fontFamily: disp.bold, fontSize: 24, color: colors.text },
-  bstatK: { marginTop: 6, fontFamily: body.medium, fontSize: 11, color: colors.text2 },
-
-  loader: { flex: 1, paddingTop: 60, alignItems: "center" },
-
-  section: { marginTop: 22 },
-  sectionLabel: {
+  backText: {
     fontFamily: disp.bold,
-    fontSize: 11,
-    letterSpacing: 0.1,
-    color: colors.text2,
-    textTransform: "uppercase",
-    marginBottom: 10,
+    fontSize: 15,
+    color: colors.gold,
+    letterSpacing: -0.2,
   },
+>>>>>>> main
+  h1: {
+    fontFamily: disp.bold,
+    fontSize: 27,
+    letterSpacing: -0.5,
+    color: colors.text,
+  },
+  sub: {
+    marginTop: 7,
+    color: colors.text2,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: body.regular,
+  },
+
+  bstats: { flexDirection: "row", gap: 10 },
+  bstat: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    alignItems: "center",
+  },
+  bstatV: { fontFamily: disp.bold, fontSize: 24, color: colors.text },
+  bstatK: {
+    marginTop: 6,
+    fontFamily: body.medium,
+    fontSize: 11,
+    color: colors.text2,
+  },
+
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
+    marginTop: 18,
+<<<<<<< HEAD
+  },
+  cellWrap: { width: "31.5%", marginBottom: 10 },
+  cell: {
+    alignItems: "center",
+    paddingTop: 16,
+    paddingBottom: 14,
+    paddingHorizontal: 8,
+    borderRadius: radius.md,
+    gap: 0,
+  },
+  barWrap: { alignSelf: "stretch", marginTop: 10, marginBottom: 2 },
+  bn: {
+    marginTop: 9,
+    fontFamily: disp.semibold,
+    fontSize: 11,
+    textAlign: "center",
+    letterSpacing: -0.1,
+    color: colors.text,
+    lineHeight: 15,
+=======
     rowGap: 11,
   },
   cellWrap: { width: "31.5%" },
@@ -186,5 +223,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
     color: colors.text,
     width: "100%",
+>>>>>>> main
   },
 });
