@@ -6,6 +6,11 @@ export async function fetchDailyQuests(date) {
   return data.quests;
 }
 
+export async function awardQuestPoints(id) {
+  const data = await api(`/quest/${id}/claim`,{ method: "POST" });
+  return data;
+}
+
 // export async function setDailyQuests(date, questIds) {
 //   return api("/quest/set-daily", { method: "PUT", body: { date, questIds } });
 // }
