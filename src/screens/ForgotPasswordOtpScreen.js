@@ -11,7 +11,12 @@ import { ArrowRight } from "../components/icons";
 import { colors, radius, shadow } from "../theme/tokens";
 import { disp, body } from "../theme/typography";
 
-import { verifyResetCode, resendVerificationCode, requestPasswordReset } from "../services/authApi";
+import {
+  verifyResetCode,
+  resendVerificationCode,
+  requestPasswordReset,
+} from "../services/authApi";
+import OtpInput from "../components/auth/OtpInput";
 
 export default function ForgotPasswordOtpScreen({ route, navigation }) {
   const email = route?.params?.email ?? "";
@@ -86,20 +91,8 @@ export default function ForgotPasswordOtpScreen({ route, navigation }) {
         keyboardVerticalOffset={12}
       >
         <Card style={styles.formCard}>
-          {/* <Text style={styles.emailText}>
-            {email}
-          </Text> */}
-
-          <AuthField
-            label="Verification Code"
-            value={code}
-            onChangeText={setCode}
-            placeholder="Enter 6-digit code"
-            keyboardType="number-pad"
-            maxLength={6}
-            returnKeyType="done"
-            onSubmitEditing={submit}
-          />
+          <Text style={styles.otpLabel}>Verification Code</Text>
+          <OtpInput value={code} onChangeText={setCode} length={6} />
 
           {submitError ? (
             <Text style={styles.submitError}>{submitError}</Text>
@@ -163,6 +156,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cardLine2,
     ...shadow.card,
+  },
+
+  otpLabel: {
+    marginBottom: 8,
+    fontFamily: body.semibold,
+    fontSize: 11,
+    letterSpacing: 1.3,
+    color: colors.text3,
+    textTransform: "uppercase",
   },
 
   emailText: {

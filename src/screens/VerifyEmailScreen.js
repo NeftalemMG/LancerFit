@@ -11,15 +11,10 @@ import { ArrowRight } from "../components/icons";
 import { colors, radius, shadow } from "../theme/tokens";
 import { disp, body } from "../theme/typography";
 
-import {
-  verifyEmail,
-  resendVerificationCode,
-} from "../services/authApi";
+import { verifyEmail, resendVerificationCode } from "../services/authApi";
+import OtpInput from "../components/auth/OtpInput";
 
-export default function VerifyEmailScreen({
-  route,
-  navigation,
-}) {
+export default function VerifyEmailScreen({ route, navigation }) {
   const email = route?.params?.email ?? "";
 
   const [code, setCode] = useState("");
@@ -50,8 +45,7 @@ export default function VerifyEmailScreen({
       navigation.navigate("signin");
     } catch (error) {
       setSubmitError(
-        error?.message ||
-          "Unable to verify email. Please try again."
+        error?.message || "Unable to verify email. Please try again.",
       );
     } finally {
       setSubmitting(false);
@@ -70,14 +64,9 @@ export default function VerifyEmailScreen({
         email,
       });
 
-      setSuccessMessage(
-        "A new verification code has been sent."
-      );
+      setSuccessMessage("A new verification code has been sent.");
     } catch (error) {
-      setSubmitError(
-        error?.message ||
-          "Unable to resend verification code."
-      );
+      setSubmitError(error?.message || "Unable to resend verification code.");
     } finally {
       setResending(false);
     }
@@ -96,31 +85,13 @@ export default function VerifyEmailScreen({
         keyboardVerticalOffset={12}
       >
         <Card style={styles.formCard}>
-          {/* <Text style={styles.emailText}>
-            {email}
-          </Text> */}
-
-          <AuthField
-            label="Verification Code"
-            value={code}
-            onChangeText={setCode}
-            placeholder="Enter 6-digit code"
-            keyboardType="number-pad"
-            maxLength={6}
-            returnKeyType="done"
-            onSubmitEditing={submit}
-          />
-
+          <Text style={styles.otpLabel}>Verification Code</Text>
+          <OtpInput value={code} onChangeText={setCode} length={6} />
           {submitError ? (
-            <Text style={styles.submitError}>
-              {submitError}
-            </Text>
+            <Text style={styles.submitError}>{submitError}</Text>
           ) : null}
-
           {successMessage ? (
-            <Text style={styles.successText}>
-              {successMessage}
-            </Text>
+            <Text style={styles.successText}>{successMessage}</Text>
           ) : null}
 
           <PressScale
@@ -133,40 +104,23 @@ export default function VerifyEmailScreen({
               colors={[colors.blue2, colors.blue]}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
-              style={[
-                styles.submitBtn,
-                submitting &&
-                  styles.submitBtnDisabled,
-              ]}
+              style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
             >
               <Text style={styles.submitText}>
-                {submitting
-                  ? "Verifying…"
-                  : "Verify Email"}
+                {submitting ? "Verifying…" : "Verify Email"}
               </Text>
 
-              <ArrowRight
-                size={17}
-                color="#fff"
-                strokeWidth={2.4}
-              />
+              <ArrowRight size={17} color="#fff" strokeWidth={2.4} />
             </LinearGradient>
           </PressScale>
         </Card>
 
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>
-            Didn't receive a code?
-          </Text>
+          <Text style={styles.footerText}>Didn't receive a code?</Text>
 
-          <PressScale
-            onPress={resendCode}
-            disabled={resending}
-          >
+          <PressScale onPress={resendCode} disabled={resending}>
             <Text style={styles.footerLink}>
-              {resending
-                ? "Sending..."
-                : "Resend Code"}
+              {resending ? "Sending..." : "Resend Code"}
             </Text>
           </PressScale>
         </View>
@@ -185,6 +139,15 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 22,
     paddingVertical: 24,
+  },
+
+  otpLabel: {
+    marginBottom: 8,
+    fontFamily: body.semibold,
+    fontSize: 11,
+    letterSpacing: 1.3,
+    color: colors.text3,
+    textTransform: "uppercase",
   },
 
   formCard: {
@@ -215,9 +178,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 9,
-    ...shadow.accent(
-      "rgba(47,123,196,0.8)"
-    ),
+    ...shadow.accent("rgba(47,123,196,0.8)"),
   },
 
   submitBtnDisabled: {
