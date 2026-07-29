@@ -1,6 +1,22 @@
+import Constants from "expo-constants";
 import { getAccessToken, getRefreshToken, updateAccessToken, clearAuth } from "./tokenStore";
 
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000/api";
+// In Expo dev the phone already reaches Metro at the machine's LAN IP; reuse
+// that host for the API so we never hardcode a machine IP that changes with the
+// network. Returns null in production builds (no Metro host), where we fall
+// back to EXPO_PUBLIC_API_URL.
+function devHostBase() {
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    Constants.expoGoConfig?.debuggerHost ||
+    Constants.manifest?.debuggerHost ||
+    Constants.manifest2?.extra?.expoGo?.debuggerHost;
+  const host = hostUri && hostUri.split(":")[0];
+  return host ? `http://${host}:8000/api` : null;
+}
+
+export const API_BASE_URL =
+  devHostBase() || process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000/api";
 
 function apiError(message, extra = {}) {
   const err = new Error(message || "Request failed");

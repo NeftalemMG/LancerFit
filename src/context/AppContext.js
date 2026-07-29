@@ -180,6 +180,7 @@ export function AppProvider({ children }) {
   }, []);
 
   const loadQuests = useCallback(async () => {
+    if (!isAuthenticated) return; // /quest/daily requires auth
     try {
       const live = await fetchDailyQuests();
       if (Array.isArray(live) && live.length) {
@@ -188,7 +189,7 @@ export function AppProvider({ children }) {
     } catch (err) {
       // offline: keep mocks
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // ---- Load which challenges the user has joined + their status ----
   const loadMyChallenges = useCallback(async () => {
