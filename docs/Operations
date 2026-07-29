@@ -1,0 +1,137 @@
+Operations
+==========
+
+Requirements
+------------
+
+Node 20 or newer, the Expo CLI via npx, and a physical Android or iOS device
+for anything involving push notifications, the pedometer or location. A
+simulator is fine for layout work and nothing else.
+
+The backend must be running. This app has no mock layer; the only fallback is
+the static activity catalogue in src/data/activityData.js, which covers the
+log screen if the catalogue endpoint fails.
+
+
+Environment
+-----------
+
+Create .env in the repository root.
+
+	EXPO_PUBLIC_API_URL=http://192.168.1.20:8000/api
+
+Rules for that value:
+
+* It must end in /api. The backend mounts every route under it.
+* It must be reachable from the device. On a phone, localhost is the phone.
+  Use your machine's LAN address, or start Expo with --tunnel.
+* The socket origin is derived from it by stripping the trailing /api, so one
+  variable configures both REST and realtime.
+
+Only variables prefixed EXPO_PUBLIC_ reach client code, and everything with
+that prefix ships in the bundle. Never put a secret in this file.
+
+The backend's CLIENT_ORIGINS must include the origin the app connects from or
+every request fails before it reaches a route.
+
+
+Running
+-------
+
+	npm install
+	npx expo start
+	npx expo start --android
+	npx expo start --ios
+	npx expo start --tunnel      device on a different network
+	npx expo start -c            clear the Metro cache
+
+Clear the cache after changing anything in src/data/avatarSources.js or
+src/data/facultyBadgeSources.js. Metro resolves those require() paths at
+bundle time and caches the result.
+
+
+Configuration in app.json
+-------------------------
+
+	expo-notifications plugin, gold #FFD157 notification colour
+	POST_NOTIFICATIONS permission on Android
+	remote-notification background mode on iOS
+	expo-location and expo-sensors permission strings
+
+Changing any of these requires a new development build, not a reload. They are
+native configuration.
+
+
+Device permissions
+------------------
+
+	Notifications   asked for on first authenticated launch by
+	                hooks/usePushNotifications.js
+	Location        asked for by hooks/useGymProximity.js, used only for the
+	                TLC proximity check
+	Motion          asked for by hooks/usePedometer.js for step counts
+
+All three fail quietly. A refused permission degrades the feature and must
+never block a render or crash a screen.
+
+
+First run against a fresh backend
+---------------------------------
+
+1. Start Postgres and the backend, and confirm it prints the REST base URL.
+2. Register a student in the app. Faculty and nationality are required and
+   determine the avatar set and leaderboard identity.
+3. Retrieve the verification code from the development mail catcher the
+   backend is pointed at.
+4. Sign in, log an activity, and confirm XP moves on the home card.
+5. Create a challenge in the admin console and confirm the push notification
+   and the in-app banner both arrive.
+
+
+Testing the pieces that need a device
+-------------------------------------
+
+	Push          physical device, signed in. The token is registered on
+	              launch and removed on sign out. If nothing arrives, check
+	              that POST /push/register succeeded before blaming the sender.
+	Check-in      useGymProximity fires on a rising edge into the radius. To
+	              test without walking to the TLC, temporarily widen the
+	              radius rather than faking a location.
+	Steps         needs motion permission and real movement.
+
+
+Building
+--------
+
+Expo SDK 54. A production build goes through EAS. Before any build:
+
+* Point EXPO_PUBLIC_API_URL at the deployed API, not a LAN address. It is
+  baked in at build time.
+* Confirm the API is served over HTTPS. Access tokens are bearer credentials.
+* Bump the version in app.json.
+
+A development build is required for push and sensors. Expo Go cannot host
+them.
+
+
+Troubleshooting
+---------------
+
+	Requests fail immediately, login screen looks fine
+	    EXPO_PUBLIC_API_URL missing /api, or unreachable from the device.
+
+	Login works, nothing updates live
+	    The socket origin is wrong, or the access token expired between the
+	    REST call and the handshake. Both use the same token.
+
+	Text renders in the system font
+	    A font family string in src/theme/typography.js does not match a
+	    useFonts key in App.js.
+
+	An avatar or crest is blank
+	    A require() path in avatarSources.js or facultyBadgeSources.js does
+	    not resolve. Clear the Metro cache and check the file exists.
+
+	Everyone on a board looks identical
+	    facultyKey and level were flattened somewhere between the API
+	    response and the board. Carry the serializer fields through.

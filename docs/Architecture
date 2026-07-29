@@ -1,0 +1,131 @@
+Architecture
+============
+
+Startup
+-------
+
+App.js does four things in order and nothing else:
+
+1. Loads the fonts. React Native needs each weight registered as its own
+   family, so every Space Grotesk and Inter variant is named explicitly. The
+   keys here must match the strings in src/theme/typography.js.
+2. Holds the native splash until fonts are ready, so there is never a flash of
+   the system font.
+3. Mounts the provider tree.
+4. Hands off to AppShell.
+
+	<SafeAreaProvider>
+	  <View>                          root, appBg
+	    <AuthProvider>                who is signed in, tokens
+	      <PushGate />                registers the Expo push token
+	      <AppProvider>               player, quests, challenges, badges
+	        <AppShell />              chooses the auth stack or the app stack
+	      </AppProvider>
+	    </AuthProvider>
+	  </View>
+	</SafeAreaProvider>
+
+The order matters. PushGate must sit inside AuthProvider because a device
+token has to attach to a signed-in account, and AppProvider must sit inside
+AuthProvider because every fetch it makes needs a token.
+
+
+Routing
+-------
+
+src/components/AppShell.js reads the auth state and renders one of two
+navigators.
+
+AuthNavigator (src/navigation/AuthNavigator.js), a native stack:
+
+	signin, signup, verifyEmail, forgot, forgotVerify, resetPassword
+
+AppNavigator (src/navigation/AppNavigator.js), a native stack whose first
+screen is the tab navigator:
+
+	Stack:  Tabs, Badges, Stats, ExerciseStats, avatarJourney
+	Tabs:   home, quests, log, board, profile
+
+Tabs render through a custom tab bar (src/components/TabBar.js) with the
+raised gold action button in the centre.
+
+Anything that is a destination rather than a section belongs in the stack, not
+the tabs. Badges and Stats were tabs early on and were moved for that reason.
+
+
+State
+-----
+
+Two contexts, no store library.
+
+src/context/AuthContext.js
+	The signed-in user, isAuthenticated, isLoading, and the sign-in,
+	sign-up and sign-out actions. Owns the token lifecycle together with
+	services/tokenStore.js. Logout also unregisters the push token.
+
+src/context/AppContext.js
+	Everything the signed-in experience reads: player profile, today's quests,
+	challenges, which challenges the user joined, per-challenge submission
+	status, badges earned and the badge catalogue, the queue of newly awarded
+	badges awaiting a celebration modal, level-up state, the toast, and the
+	currently open bottom sheet.
+
+	It is the fetch orchestrator as well as the store. Screens call actions on
+	it rather than calling services directly, which is what keeps a challenge
+	joined on one screen from going stale on another.
+
+Screen-local state stays in the screen. Anything two screens must agree on
+goes in AppContext.
+
+
+Data flow
+---------
+
+	AppContext action  -> src/services/<x>Api.js
+	                   -> src/services/apiClient.js
+	                   -> fetch, Bearer token, one refresh retry on 401
+	                   -> state update
+	                   -> screens rerender
+
+	socket event       -> src/services/realtime.js
+	                   -> refetch through the same AppContext action
+	                   -> optional local banner
+
+	push notification  -> expo-notifications
+	                   -> banner while the app is closed or backgrounded
+
+Sockets and push are complementary. Sockets update a running app; push reaches
+a closed one. Both are fired by the same backend controller.
+
+There is no cache and no optimistic update. After a mutation the client
+refetches, because XP, standings and validation state can all be changed by
+staff while the screen is open.
+
+
+Local persistence
+-----------------
+
+AsyncStorage, behind three small stores. Nothing else in the app touches
+AsyncStorage directly.
+
+	services/tokenStore.js      access and refresh tokens
+	services/pinStore.js        which exercises are pinned to the home widget
+	services/settingsStore.js   quest reminders and auto check-in toggles
+
+settingsStore keeps an in-memory cache with a subscribe function so a toggle
+takes effect immediately rather than on the next read.
+
+
+Device capabilities
+-------------------
+
+	hooks/usePedometer.js         step counts and the weekly history, via
+	                              expo-sensors
+	hooks/useGymProximity.js      expo-location; a rising-edge crossing into
+	                              the TLC radius prompts a check-in once,
+	                              not repeatedly
+	hooks/usePushNotifications.js registers the Expo push token when
+	                              authenticated
+
+All three degrade quietly when a permission is refused. None of them may block
+a render.

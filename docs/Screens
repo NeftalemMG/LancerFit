@@ -1,0 +1,122 @@
+Screens
+=======
+
+One file per screen in src/screens/. Route names are the strings registered in
+src/navigation/.
+
+
+Authentication stack
+--------------------
+
+SignInScreen        signin
+	Email and password. On success the token pair is stored and AppShell
+	swaps to the app stack.
+
+SignUpScreen        signup
+	Registration. Faculty and nationality are chosen here through
+	components/auth/AuthSelect.js, which shows the faculty crest next to each
+	option. Both values are required by the backend and both drive the
+	student's avatar and leaderboard identity, so this is not a cosmetic
+	step.
+
+VerifyEmailScreen   verifyEmail
+	Six digit email OTP, entered through components/auth/OtpInput.js.
+
+ForgotPasswordScreen        forgot
+ForgotPasswordOtpScreen     forgotVerify
+ResetPasswordScreen         resetPassword
+	The three step reset: request a code, verify it, set a new password.
+
+SplashScreen and OnboardingScreen also exist in the folder. SplashScreen is
+the branded hold. OnboardingScreen is not registered in any navigator; see
+docs/maintenance.md.
+
+
+Tabs
+----
+
+HomeScreen          home
+	Greeting with the student's name and flag, the day streak, the Lancer
+	level card with XP progress to the next level, the TLC card with distance
+	and a check-in button, today's three quests with claim actions, and the
+	pinned stat widget for the week.
+
+	Reads GET /user/me for level, XP, streak and loggedToday, and the quest
+	rotation for the day. The level card renders what the server sends; it
+	does not recompute the curve.
+
+ChallengesScreen    quests
+	The featured challenge, then the browse list. Cards show the category,
+	the XP reward, how many Lancers have joined, and the avatars of the three
+	most recent joiners, which come from the backend's recentParticipants.
+	Tapping a card opens the challenge sheet.
+
+LogScreen           log
+	The centre action. Daily steps against a goal with the weekly bar, then
+	the facility areas, each opening its sub-activities. The catalogue is
+	fetched from the backend and falls back to the static map in
+	src/data/activityData.js if that call fails. A student can also log a
+	custom activity, which becomes a per-user entry.
+
+LeaderboardScreen   board
+	Three tabs: Friends, Faculty, Campus. Podium for the top three, then the
+	ranked list with avatar, flag, faculty and XP. Faculty and Campus are
+	served by the backend leaderboard endpoints.
+
+	The Friends tab is a leftover from a scope that has been dropped. See
+	docs/maintenance.md.
+
+ProfileScreen       profile
+	Identity with the faculty crest, the link into the avatar journey, the
+	badge shortcut, the live settings toggles for quest reminders and auto
+	check-in, and sign out. Toggles write through services/settingsStore.js
+	and take effect immediately.
+
+
+Stack destinations
+------------------
+
+BadgesScreen        Badges
+	Earned and unearned badges, with the locked ones shown rather than
+	hidden so the ladder is legible. Gold text-only back button.
+
+StatsScreen         Stats
+	The stats index across logged exercises.
+
+ExerciseStatsScreen ExerciseStats
+	One exercise in detail: hero metric, range selector for week, month and
+	year, bar chart and tiles. Backed by GET /stats/exercise/:key.
+
+	Axis labels are range aware. Year shows three letter months, month shows
+	the day of the month, day shows the hour. This is deliberate; a shared
+	label format truncates and was a reported defect.
+
+AvatarJourneyScreen avatarJourney
+	The progression map. Five floating islands, one per tier, threaded by a
+	single winding trail from Squire at the bottom to Lancer at the top. Each
+	stop shows the real avatar art for that tier, the levels it covers and the
+	XP needed to unlock it.
+
+	Locked tiers stay visible behind a frosted scrim with a lock glyph rather
+	than being hidden, so a student can see what they are working toward. The
+	current tier carries a gold star, cleared tiers a check.
+
+	Art only changes at a tier boundary. Sub-levels reuse the same art and are
+	shown as rank pips.
+
+
+Sheets
+------
+
+Sheets are modal surfaces rendered by components/Overlays.js rather than
+screens, but they carry as much of the experience as some screens do.
+
+	ChallengeSheet.js        challenge detail, live board, join and log
+	ChallengeResultSheet.js  submit a supervised result for validation
+	BadgeSheet.js            one badge in detail
+	BadgeAwardModal.js       the celebration when a badge is awarded
+	LevelUpModal.js          the celebration on level up
+
+The sheet stack lifts with the keyboard through a keyboard listener that
+translates the sheet by the keyboard height. A KeyboardAvoidingView does not
+work for a bottom-pinned sheet; this was tried and reverted.

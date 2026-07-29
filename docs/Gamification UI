@@ -1,0 +1,182 @@
+Gamification on the client
+=========================
+
+The server owns the rules. This file describes how the client presents them
+and which numbers it is allowed to compute.
+
+The one rule that matters: the app displays what the API sends. It does not
+recompute XP curves, streaks or tiers. Where a constant appears on both sides
+it is a mirror, and mirrors are listed at the bottom of this file so they can
+be changed together.
+
+
+XP and level
+------------
+
+GET /user/me returns totalXp, level, xpIntoLevel, xpMax and xpToNext. The
+Lancer level card on HomeScreen renders all five directly:
+
+	LANCER LEVEL <level>
+	<tier name> - Tier <sub rank>
+	<xpIntoLevel> / <xpMax> XP        <xpToNext> to next
+
+The progress bar is xpIntoLevel / xpMax. If the server changes the curve the
+card follows without a client release.
+
+Level up is detected by AppContext comparing the level it last saw against the
+level in a fresh profile response. A change raises LevelUpModal. Nothing else
+in the app triggers that modal.
+
+
+Tiers and avatars
+-----------------
+
+Five tiers, mirrored from the backend in src/data/facultyTheme.js:
+
+	Tier 1  Squire   levels 1-2
+	Tier 2  Knight   levels 3-7
+	Tier 3  Hero     levels 8-13
+	Tier 4  Legend   levels 14-19
+	Tier 5  Lancer   levels 20-25
+
+	tierForLevel(level)    the tier index
+	tierName(level)        the display name
+	getAvatarSource(facultyKey, level)   the art for that faculty and tier
+
+Art changes only at a tier boundary. There are five images per faculty, not
+twenty-five. Sub-levels reuse the tier's art and are shown as rank pips, which
+is the intended behaviour and not a missing asset.
+
+The faculty key comes from the backend serializer as facultyKey. The client
+never derives it from the faculty display string.
+
+FacultyAvatar.js selects the image; KnightAvatar.js is the SVG fallback when
+no faculty key is available.
+
+
+AvatarJourneyScreen
+-------------------
+
+The progression map, reached from ProfileScreen.
+
+Five floating islands on a starlit field, one per tier, threaded bottom to top
+by a single winding trail. Each stop shows the tier's real avatar art, the
+levels it covers, and the XP required to unlock it.
+
+	current tier    gold star, "You are here"
+	cleared tiers   check mark
+	locked tiers    frosted scrim plus a lock glyph, still visible
+
+Locked tiers stay visible on purpose. A student needs to see what they are
+working toward; hiding it removes the reason to keep going.
+
+Medallions are absolutely positioned against a fixed virtual canvas scaled to
+the screen width, so the stops stay locked to the terrain at any device size.
+The SVG is rendered at real pixel size with a viewBox rather than scaled with
+a CSS transform, which blurs it.
+
+
+Streak
+------
+
+The streak comes from /user/me and is derived server side from the distinct
+days the student logged an activity. A streak survives until midnight even if
+today has no session yet, so the flame does not disappear at 00:01 on a day
+the student is still going to train.
+
+The client displays the number and the loggedToday flag. It does not count
+days itself.
+
+
+Daily quests
+------------
+
+Three quests per day, fetched from GET /quest/daily. HomeScreen shows them
+with progress and a claim button; the Challenges screen links to the full set.
+
+The rotation is decided by the server. Staff can pin a specific set for a
+date, otherwise a deterministic pick from the bank applies. The client is not
+aware of which of the two produced today's list, and should not become aware.
+
+Claiming posts to POST /quest/:id/claim and then refetches the profile so the
+new XP total and any level change land through the normal path.
+
+The claim endpoint currently has no completion record and no idempotency
+guard. The client must not be relied on to prevent double claims. See the
+backend's docs/maintenance.md.
+
+
+Challenges
+----------
+
+	browse      GET /challenge/active, including recentParticipants so cards
+	            show real joiner avatars
+	join        POST /challenge/:id/register
+	board       GET /challenge/:id/leaderboard
+	log result  POST /challenge/:id/submit-points
+
+Per-challenge status lives in AppContext as pending, submitted, approved or
+rejected. The challenge sheet's call to action follows that status: join,
+then log a result, then awaiting review, then log another result once a
+decision has been made. Re-submission after approval or rejection is allowed
+by the backend and the sheet exposes it.
+
+Supervised challenges are validated in person by TLC staff. The app's job
+ends at submission; approval happens in the admin console and comes back as a
+validation:decided socket event plus a push notification.
+
+
+Badges
+------
+
+	catalogue   GET /badge/all
+	earned      GET /badge/me
+
+BadgesScreen shows both, with unearned badges dimmed rather than hidden.
+AppContext keeps a badgeQueue of newly awarded badges; BadgeAwardModal drains
+it one at a time so two badges earned in one action do not collide.
+
+Badge XP is already included in totalXp by the time the client sees it. The
+modal celebrates, it does not add.
+
+
+Check-in
+--------
+
+Worth 75 XP, once per calendar day, POST /checkin.
+
+hooks/useGymProximity.js watches location and prompts on a rising edge into
+the TLC radius, once per crossing rather than continuously. The prompt is
+gated on the auto check-in setting, so a student who turned it off is not
+asked. The manual button on HomeScreen always works regardless of the setting.
+
+
+Steps
+-----
+
+hooks/usePedometer.js reads real step data through expo-sensors and builds the
+weekly history. Steps are shown on HomeScreen and LogScreen against a goal.
+They are a display metric; they do not award XP.
+
+
+Mirrors to keep in sync
+-----------------------
+
+Each of these exists here and in the backend. Change both or neither.
+
+	XP per level, 2000
+	    here: implied by xpMax from the API, no local constant
+	    backend: meController.levelFromXp and utils/serializers.levelFromXp
+
+	Tier boundaries 1 / 3 / 8 / 14 / 20
+	    here: src/data/facultyTheme.js tierForLevel
+	    backend: utils/serializers.avatarTierFromLevel
+
+	Faculty keys faculty1..faculty9
+	    here: src/data/facultyTheme.js, avatarSources.js,
+	          facultyBadgeSources.js, and the asset folder names
+	    backend: FACULTY_KEY_BY_VALUE in utils/serializers.ts
+
+	Check-in value 75 XP
+	    here: display copy only
+	    backend: CHECKIN_XP in checkinController.ts

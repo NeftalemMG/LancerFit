@@ -1,0 +1,113 @@
+API layer
+=========
+
+Everything that crosses the network or touches AsyncStorage lives in
+src/services/. Screens never call fetch and never call AsyncStorage.
+
+
+Files
+-----
+
+	apiClient.js          the fetch wrapper, base URL, auth header, refresh
+	tokenStore.js         access and refresh tokens in AsyncStorage
+	authApi.js            register, login, verify, forgot, reset, refresh
+	userApi.js            the live profile
+	challengeApi.js       challenges, join, submit result
+	questApi.js           the quest bank and the daily rotation
+	catalogApi.js         facility areas and sub-activities
+	customActivityApi.js  per-user custom activities and pinning
+	checkinApi.js         gym check-in and its status
+	statsApi.js           summary, exercise list, per-exercise series
+	leaderboardApi.js     faculty and campus boards
+	badgeApi.js           badge catalogue and earned badges
+	pushTokenStore.js     the registered Expo push token
+	pinStore.js           pinned exercises for the home widget
+	settingsStore.js      quest reminders and auto check-in toggles
+	realtime.js           the Socket.IO connection and the event bridge
+
+
+apiClient
+---------
+
+	export const API_BASE_URL =
+	  process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000/api";
+
+The value must end in /api and must be an address the device can reach. On a
+phone, localhost is the phone. Use the machine's LAN address or an Expo
+tunnel.
+
+api(path, { method, body, auth }) does the whole request:
+
+* attaches Authorization: Bearer <access token> unless auth is false,
+* JSON encodes the body and parses the response defensively, so an HTML error
+  page from a proxy becomes a message rather than a parse crash,
+* on a 401, attempts exactly one refresh and replays the request once. If the
+  refresh fails it clears the stored auth, which sends AppShell back to the
+  sign-in stack,
+* throws an Error carrying status, message and any field errors array, so a
+  screen can show validation feedback inline.
+
+The single-retry guard is the _retried flag. Do not remove it; without it a
+dead refresh token produces an infinite request loop.
+
+
+Adding a call
+-------------
+
+1. Add a function to the right service file. Return the payload the screen
+   needs, not the raw envelope.
+2. If more than one screen needs the result, add an action to AppContext and
+   call it from there. If one screen needs it, the screen may call the service
+   directly.
+3. Match the backend serializer field for field. If the serializer sends
+   facultyKey and level, carry them through instead of flattening them; a
+   board that hardcodes a faculty renders every student identically, which is
+   a defect this project has already shipped once.
+
+
+Realtime
+--------
+
+services/realtime.js owns the socket. It connects with the access token in the
+handshake auth field and bridges server events to local behaviour:
+
+	challenge:created       refetch challenges, raise a local banner
+	validation:submitted    banner
+	validation:decided      banner and refetch
+
+Two things about this file are load bearing:
+
+* Listeners are rebound once the socket actually exists. The socket is created
+  after AppContext mounts, so a naive bind at mount time attaches to null and
+  silently never fires. Any new listener must go through the hook in this
+  file rather than reaching for the socket directly.
+* Banners are gated on the user's settings. A quest reminder banner checks
+  questReminders through settingsStore before showing.
+
+
+Push notifications
+------------------
+
+	hooks/usePushNotifications.js   registers the device with Expo and posts
+	                                the token to POST /push/register
+	services/pushTokenStore.js      remembers the token so logout can
+	                                DELETE /push/register
+
+Registration only runs when authenticated, which is why PushGate sits inside
+AuthProvider in App.js. The backend sends through the Expo push service.
+
+Push needs a physical device. It cannot be tested in a simulator.
+
+
+Local stores
+------------
+
+	tokenStore.js      getAccessToken, getRefreshToken, updateAccessToken,
+	                   clearAuth
+	pinStore.js        loadPinned, togglePinned, savePinned, clearPinned,
+	                   ensurePinsInitialized
+	settingsStore.js   loadSettings, getSetting, setSetting, subscribe
+
+settingsStore caches in memory and notifies subscribers, so a toggle applies
+without a reload. getSetting is synchronous against that cache, which is why
+loadSettings must run at startup. See docs/maintenance.md.

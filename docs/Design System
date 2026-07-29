@@ -1,0 +1,120 @@
+Design system
+=============
+
+Colour
+------
+
+src/theme/tokens.js is the only place a colour is defined. No screen contains
+a literal hex value.
+
+	Field        bg0 #0C1530  bg1 #13214D  bg2 #19294F  appBg #0C1530
+	Surfaces     card, card2        translucent white over the navy
+	             cardLine, cardLine2 hairline borders
+	Ink          text #EEF3FA  text2 #A8BBD4  text3 #6E84A4
+	Blue         blue #2F7BC4  blue2 #4A93D8  blueSoft  blueLine
+	Gold         gold #FFD157  goldDim #E0A838  goldSoft  goldLine
+	             goldInk #2A1E04 for text sitting on gold
+	Podium       medalGold, medalSilver #C6CDD8, medalBronze #C8884E,
+	             each with a Dim companion
+	Status       green #4FB587, coral #E07A5F, plum #A98BC9
+
+Surfaces are translucent white over the navy field rather than solid panels.
+That is what gives the app its depth, and it is why a solid background colour
+on a card looks immediately wrong.
+
+Gold is the single functional accent: the primary action, the raised tab
+button, the current position, first place, the back affordance. Spending it on
+decoration costs it its meaning.
+
+
+Type
+----
+
+src/theme/typography.js.
+
+	Display   Space Grotesk   400, 500, 600, 700
+	Body      Inter           400, 500, 600
+
+React Native has no weight axis, so each weight is a separate registered
+family. The names in typography.js must match the useFonts keys in App.js
+exactly; a mismatch fails silently to the system font.
+
+The type helper exposes ready-made styles with letter spacing already
+converted from em to the absolute values React Native expects.
+
+
+Iconography and art
+-------------------
+
+No icon library. Everything is drawn.
+
+	components/Glyphs.js       general SVG glyph registry
+	components/icons.js        navigation and UI icons
+	components/SportIcons.js   activity and sport icons
+	components/KnightAvatar.js the SVG avatar fallback
+
+Real art lives in assets/:
+
+	assets/avatars/faculty1..faculty9/1..5.png    avatar per faculty per tier
+	assets/facultyBadges/1..9.png                 faculty crests
+	assets/brand/uwindsor-logo.png
+	assets/animations/*.json                      Lottie
+
+Faculty keys faculty1 through faculty9 map index for index onto both folders.
+The backend assigns the key from the student's faculty; the client never
+guesses it.
+
+	data/avatarSources.js         build-time require map for avatar art
+	data/facultyBadgeSources.js   build-time require map for crests
+	data/facultyTheme.js          the nine themes, tier names, tierForLevel,
+	                              getAvatarSource, themeForFaculty
+
+Metro resolves require() paths at bundle time, so every path in those two maps
+must point at a file that exists. A dynamic path will not work.
+
+
+Shared components
+-----------------
+
+	ui.js                   primitives shared across screens
+	GlassTitle.js           the frosted page title
+	GoldBackHeader.js       the gold text-only back affordance
+	TabBar.js               the custom tab bar with the raised centre button
+	BottomSheetModal.js     the sheet primitive
+	Overlays.js             the sheet and modal host
+	FacultyAvatar.js        the right avatar for a faculty and level
+	FacultyBadge.js         the crest inside its glass box
+	DynamicLeaderboardBoard.js  podium plus rows, grouped or per user
+	Badge.js, BadgeSheet.js, BadgeAwardModal.js, LevelUpModal.js
+	stats/StatBarChart.js, StatTiles.js, StatHeroMetric.js,
+	stats/RangeSelector.js, stats/HomeStatsWidget.js
+
+PressScale, used for tap feedback, applies its style to an inner animated view
+and takes a separate wrapStyle for the outer pressable. If a row of pressables
+will not spread evenly, the flex belongs on wrapStyle. This has been diagnosed
+more than once.
+
+
+Layout rules
+------------
+
+* Page titles are left aligned with a gold edge bar. Centred titles with
+  horizontal padding were the source of a recurring complaint about a gap
+  before the title, and the pattern has been removed from every sheet and
+  screen. Do not reintroduce it.
+* A screen's horizontal padding belongs to one element. Putting a padded
+  header inside an already padded scroll view doubles the inset; every screen
+  puts its header outside the scroll view in a root view for this reason.
+* Safe area insets are applied with a clamp, not raw, so the header does not
+  drift on devices with a large top inset.
+* Locked or unearned states are shown, not hidden. A badge a student has not
+  earned and a tier they have not reached both render, dimmed.
+
+
+Copy
+----
+
+* No emoji. Flag characters on the leaderboard are data, not decoration.
+* No em dashes.
+* Sentence case for labels. Uppercase is reserved for eyebrow labels.
+* Numbers are the point of this app. Never truncate one to fit a layout.

@@ -1,0 +1,179 @@
+Maintenance
+===========
+
+Read this before assuming any part of the app is finished.
+
+
+Correctness gaps
+----------------
+
+1. Startup wiring is missing in App.js.
+   App.js imports loadSettings from services/settingsStore.js and
+   setStoredPushToken from services/pushTokenStore.js and calls neither.
+
+   The consequence of the first is real: settingsStore.getSetting reads a
+   synchronous in-memory cache, and nothing populates that cache at launch.
+   The persisted Quest reminders and Auto check-in toggles are therefore not
+   honoured until the user opens ProfileScreen and the store loads as a side
+   effect. Both gates, in services/realtime.js and hooks/useGymProximity.js,
+   fall back to true.
+
+   Fix: call loadSettings in a startup effect in App.js.
+
+2. Pin initialisation is not wired.
+   services/pinStore.js exports ensurePinsInitialized and clearPinned and
+   neither has a call site. ensurePinsInitialized exists to run a one-time
+   reset of stale device pin state, which was the cause of new accounts
+   appearing with exercises already pinned on a device that had been used by
+   a previous account. Without the call, that stale state persists.
+
+   Fix: call it in the same startup effect as loadSettings.
+
+3. The Friends leaderboard tab is out of scope but still on screen.
+   LeaderboardScreen shows Friends, Faculty and Campus. The friends system
+   was removed from scope; there is no friends endpoint and no friend
+   relation in the database. The tab should be removed until the feature is
+   built, or it advertises something that cannot work.
+
+4. PushGate discards the token.
+   The comment in App.js says the registered token is mirrored into the store
+   so logout can unregister it, but PushGate returns null without capturing
+   what usePushNotifications gives back. Unregistration on logout depends on
+   the token being in the store. Verify this path end to end before trusting
+   it.
+
+
+Dead code to remove
+-------------------
+
+Verified unreachable from App.js.
+
+	src/components/LeaderboardBoard.js
+		Superseded by DynamicLeaderboardBoard.js.
+
+	src/components/LeaderboardRow.js
+		Only consumer was LeaderboardBoard.js.
+
+	src/components/ChallengeLeaderboardPreview.js
+		Superseded by the board embedded directly in ChallengeSheet.js.
+
+	src/components/LogActivitySheet.js
+		Superseded by the log flow on LogScreen and ChallengeResultSheet.js.
+
+	src/components/StackHeader.js
+		Superseded by GoldBackHeader.js and GlassTitle.js.
+
+	src/screens/OnboardingScreen.js
+		Not registered in AuthNavigator or AppNavigator. Onboarding is
+		handled by SplashScreen and the sign-up flow.
+
+Root level documentation, all superseded by docs/:
+
+	BADGES.md
+	BADGE_SYSTEM_CHANGES.md
+	CODEBASE_MAP.md
+	ProjectLayout.md
+	badge-api-for-frontend.md
+
+Unused exports. Check the reason before deleting; several are seams rather
+than leftovers.
+
+	services/pinStore.js        ensurePinsInitialized, clearPinned, savePinned
+	                            Keep. Blocked on gap (2).
+	services/settingsStore.js   isLoaded
+	services/realtime.js        getSocket
+	services/statsApi.js        fetchSummary, fetchHistory
+	services/catalogApi.js      fetchAreas
+	services/challengeApi.js    fetchAllChallenges
+	services/checkinApi.js      fetchCheckInStatus
+	services/pushTokenStore.js  clearStoredPushToken
+	                            Keep. Needed by gap (4).
+	components/Overlays.js      LogWorkoutSheet
+	components/ui.js            ScreenHeader
+	data/activityData.js        BONUS
+	data/activityImages.js      ACTIVITY_IMAGE_BY_ID, ACTIVITY_IMAGE_BY_ICON,
+	                            CUSTOM_ACTIVITY_IMAGE
+	data/countries.js           COUNTRY_BY_CODE, countryName
+
+	data/appData.js             CHALLENGES, LB, initialQuests, initialState
+	                            These are the original mock fixtures. The live
+	                            app only still uses fmt, FACULTIES, FALLBACK
+	                            and PH from this file. Split the four live
+	                            helpers out and delete the fixtures; leaving
+	                            them invites someone to render mock data.
+
+
+Traps
+-----
+
+* Provider order in App.js. PushGate must be inside AuthProvider, AppProvider
+  must be inside AuthProvider. Reordering breaks token attachment silently.
+
+* Socket listeners must go through services/realtime.js. The socket is created
+  after AppContext mounts, so binding directly at mount time attaches to null
+  and never fires. This has been diagnosed as a hot-reload bug more than once
+  and it is not one.
+
+* Keyboard handling for sheets uses a Keyboard listener that translates the
+  sheet by the keyboard height. KeyboardAvoidingView with padding does not
+  lift a bottom-pinned sheet. It has been tried and reverted.
+
+* PressScale applies style to an inner animated view. Flex belongs on
+  wrapStyle, on the outer pressable. A row that will not spread evenly is
+  almost always this.
+
+* Horizontal padding belongs to one element per screen. A padded header inside
+  an already padded ScrollView doubles the inset. Every screen puts its header
+  outside the scroll view for this reason.
+
+* Page titles are left aligned with a gold edge bar. Centred titles with
+  horizontal padding produced a long-running complaint about a gap before the
+  title. The offending pattern lived in ChallengeResultSheet.js, not
+  ChallengeSheet.js, which cost three passes to find.
+
+* Metro resolves require() at bundle time. Every path in avatarSources.js and
+  facultyBadgeSources.js must point at a file that exists, and a change there
+  needs npx expo start -c.
+
+* Never flatten facultyKey, level or flagCode when mapping an API response
+  into a board row. Hardcoding them makes every student render identically,
+  which has shipped once already.
+
+* Charts must use range-aware axis labels. A single shared format truncates:
+  three letter months for a year range, day of month for a month range, hour
+  only for a day range.
+
+* Batched loads use Promise.allSettled, not Promise.all. HomeStatsWidget once
+  blanked every pinned tile because one failing stat request rejected the
+  whole batch.
+
+
+Deferred by scope decision
+--------------------------
+
+Recorded so a future team knows these were choices, not oversights.
+
+	Friends system      following, friend-only boards, motivational nudges.
+	                    Removed from scope: friend groups, per-group board
+	                    scoping, search and activity feeds are a project of
+	                    their own. The Friends tab in LeaderboardScreen is
+	                    the last trace and should be removed.
+
+	University SSO      students would sign in with their UWindsor account,
+	                    validated against university records. Blocked on
+	                    UWindsor IT Services approval, whose cycle is longer
+	                    than this project. JWT is the authentication layer
+	                    for the MVP and was built so SSO can sit in front of
+	                    it without reworking the app.
+
+
+Work queue
+----------
+
+	1. Call loadSettings and ensurePinsInitialized at startup in App.js
+	2. Verify the push token reaches the store so logout unregisters it
+	3. Remove the Friends tab from LeaderboardScreen
+	4. Delete the dead files listed above
+	5. Split the live helpers out of data/appData.js and drop the fixtures
+	6. Apply the consistent page title treatment to any screen still missing
+	   it, using LeaderboardScreen as the reference
